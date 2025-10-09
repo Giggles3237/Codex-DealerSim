@@ -4,7 +4,7 @@ import { clsx } from 'clsx';
 
 type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
   asChild?: boolean;
-  variant?: 'default' | 'outline' | 'ghost';
+  variant?: 'default' | 'outline' | 'ghost' | 'destructive';
   size?: 'sm' | 'md' | 'lg';
 };
 
@@ -18,10 +18,11 @@ const variantStyles: Record<NonNullable<ButtonProps['variant']>, string> = {
   default: 'bg-primary text-primary-foreground hover:bg-blue-600',
   outline: 'border border-slate-600 text-foreground hover:bg-slate-800',
   ghost: 'hover:bg-slate-800 text-foreground',
+  destructive: 'bg-red-600 text-white hover:bg-red-700',
 };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, asChild, variant = 'default', size = 'md', ...props }, ref) => {
+  ({ className, asChild, variant = 'default', size = 'md', type = 'button', ...props }, ref) => {
     const Comp = asChild ? Slot : 'button';
     return (
       <Comp
@@ -31,6 +32,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           variantStyles[variant],
           className,
         )}
+        type={type}
         ref={ref}
         {...props}
       />

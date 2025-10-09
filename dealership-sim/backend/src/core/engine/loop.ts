@@ -1,4 +1,4 @@
-import { Coefficients, DailyReport, GameState, MonthlyReport, PipelineState } from '@dealership/shared';
+import { Coefficients, DailyReport, GameState, MonthlyReport, PipelineState, OPERATING_EXPENSES, BUSINESS_LEVELS } from '@dealership/shared';
 import { GameRepository } from '../repository/gameRepository';
 import { RNG } from '../../utils/random';
 import { ageInventory, autoRestock } from '../services/inventory';
@@ -9,6 +9,36 @@ import { healthCheck } from '../balance/coefficients';
 import { clamp } from '../../utils/math';
 
 const DAYS_PER_MONTH = 30;
+
+/**
+ * Calculate daily operating expenses including salaries, facility costs, and overhead
+ */
+function calculateOperatingExpenses(state: GameState): number {
+  const advisorCount = state.advisors.filter(a => a.active).length;
+  const technicianCount = state.technicians.filter(t => t.active).length;
+  const inventorySlots = state.inventory.filter(v => v.status === 'inStock').length;
+  
+  const salaries = (advisorCount * OPERATING_EXPENSES.advisorSalaryPerDay) +
+                   (technicianCount * OPERATING_EXPENSES.technicianSalaryPerDay) +
+                   (state.salesManager ? OPERATING_EXPENSES.salesManagerSalaryPerDay : 0);
+  
+  const facilityCosts = OPERATING_EXPENSES.facilityBaseCost +
+                        (inventorySlots * OPERATING_EXPENSES.facilityPerSlot);
+  
+  const overhead = OPERATING_EXPENSES.overheadBase;
+  
+  return salaries + facilityCosts + overhead;
+}
+
+/**
+ * Calculate daily floor plan interest on all in-stock inventory
+ * Floor plan financing is how dealerships finance their inventory - they pay daily interest
+ */
+function calculateFloorPlanInterest(state: GameState): number {
+  const inStockVehicles = state.inventory.filter(v => v.status === 'inStock');
+  const totalFloorValue = inStockVehicles.reduce((sum, vehicle) => sum + vehicle.floor, 0);
+  return totalFloorValue * OPERATING_EXPENSES.floorPlanInterestRate;
+}
 
 export interface EngineOptions {
   seed?: number;
@@ -25,10 +55,10 @@ export class SimulationEngine {
     return this.repository.getState();
   }
 
-  tick(days = 1): GameState {
+  tick(days = 1, forceTick = false): GameState {
     let state = this.repository.getState();
     for (let i = 0; i < days; i += 1) {
-      state = this.runDay(state);
+      state = this.runDay(state, forceTick);
     }
     this.repository.setState(state);
     return state;
@@ -40,10 +70,14 @@ export class SimulationEngine {
     this.repository.setState(state);
   }
 
-  private runDay(state: GameState): GameState {
-    if (state.paused) {
+  private runDay(state: GameState, forceTick = false): GameState {
+    // Allow manual advancement even when paused (unless auto-advancing)
+    if (state.paused && !forceTick) {
       return state;
     }
+
+    const startingCash = state.cash; // Track starting cash
+    const startingInventory = state.inventory.filter(v => v.status === 'inStock').length; // Track starting inventory
 
     const nextState: GameState = {
       ...state,
@@ -138,21 +172,35 @@ export class SimulationEngine {
     };
     nextState.pipeline = pipeline;
 
-    const cashDelta = sales.cashDelta + serviceGross;
-    nextState.cash += cashDelta;
+    // Calculate and deduct operating expenses and floor plan interest
+    const operatingExpenses = calculateOperatingExpenses(nextState);
+    const floorPlanInterest = calculateFloorPlanInterest(nextState);
+    const cashDelta = sales.cashDelta + serviceGross - operatingExpenses - floorPlanInterest;
+    nextState.cash = Math.round(nextState.cash + cashDelta);
+    
+    // Track revenue and sales for progression
+    const dailyRevenue = sales.deals.reduce((acc, deal) => acc + deal.soldPrice, 0) + serviceGross;
+    nextState.totalRevenue += dailyRevenue;
+    nextState.lifetimeSales += sales.soldVehicles.length;
 
-    // auto restock if needed
-    const restock = autoRestock(
-      nextState.inventory.filter((vehicle) => vehicle.status === 'inStock'),
-      nextState.cash,
-      nextState.coefficients,
-      this.rng,
-      trailingSales,
-    );
-    if (restock.cashSpent > 0 && restock.newVehicles.length > 0) {
-      nextState.cash -= restock.cashSpent;
-      nextState.inventory = nextState.inventory.concat(restock.newVehicles);
-      nextState.notifications.push(`Auto-acquired ${restock.newVehicles.length} vehicles to maintain days supply.`);
+    // auto restock if enabled
+    let autoAcquisitionNotice = '';
+    let acquiredCount = 0;
+    if (nextState.autoRestockEnabled) {
+      const restock = autoRestock(
+        nextState.inventory.filter((vehicle) => vehicle.status === 'inStock'),
+        nextState.cash,
+        nextState.coefficients,
+        this.rng,
+        trailingSales,
+        nextState.pricing,
+      );
+      if (restock.cashSpent > 0 && restock.newVehicles.length > 0) {
+        nextState.cash = Math.round(nextState.cash - restock.cashSpent);
+        nextState.inventory = nextState.inventory.concat(restock.newVehicles);
+        acquiredCount = restock.newVehicles.length;
+        autoAcquisitionNotice = `🚗 Auto-acquired ${acquiredCount} vehicles for $${Math.round(restock.cashSpent).toLocaleString()}`;
+      }
     }
 
     // update CSI and morale index
@@ -165,10 +213,14 @@ export class SimulationEngine {
 
     // store deals
     nextState.recentDeals = [...sales.deals, ...nextState.recentDeals].slice(0, 20);
+    
+    // store lead activity (keep last 50 activities)
+    nextState.leadActivity = [...sales.leadActivity, ...nextState.leadActivity].slice(0, 50);
 
     // reporting
+    const gameDate = `${nextState.year}-${String(nextState.month).padStart(2, '0')}-${String(nextState.day).padStart(2, '0')}`;
     const dailyReport: DailyReport = {
-      date: new Date().toISOString().split('T')[0],
+      date: gameDate,
       salesUnits: soldCount,
       frontGross: sales.deals.reduce((acc, deal) => acc + deal.frontGross, 0),
       backGross: sales.deals.reduce((acc, deal) => acc + deal.backGross, 0),
@@ -179,6 +231,8 @@ export class SimulationEngine {
       serviceComebackRate: serviceResult.comebackRate,
       cash: nextState.cash,
       marketingSpend: nextState.marketing.spendPerDay,
+      operatingExpenses: operatingExpenses,
+      floorPlanInterest: floorPlanInterest,
       moraleIndex: nextState.moraleIndex,
       csi: nextState.csi,
     };
@@ -201,6 +255,9 @@ export class SimulationEngine {
         ? monthReports.reduce((acc, report) => acc + report.closingRate, 0) / monthReports.length
         : 0;
 
+      const monthlyOperatingExpenses = monthReports.reduce((acc, report) => acc + report.operatingExpenses, 0);
+      const monthlyFloorPlanInterest = monthReports.reduce((acc, report) => acc + report.floorPlanInterest, 0);
+      
       const monthly: MonthlyReport = {
         month: monthKey,
         salesUnits,
@@ -223,6 +280,8 @@ export class SimulationEngine {
         moraleTrend: nextState.moraleIndex - state.moraleIndex,
         trainingCompletions: nextState.advisors.reduce((acc, advisor) => acc + advisor.trained.length, 0),
         csi: nextState.csi,
+        operatingExpenses: monthlyOperatingExpenses,
+        floorPlanInterest: monthlyFloorPlanInterest,
       };
       nextState.monthlyReports = [monthly, ...nextState.monthlyReports.filter((report) => report.month !== monthKey)];
     }
@@ -232,6 +291,97 @@ export class SimulationEngine {
       nextState.notifications.push(guardrail.message);
     }
 
+    // Create daily summary notification
+    const dailySummary = this.createDailySummary(
+      nextState,
+      soldCount,
+      sales,
+      serviceResult,
+      serviceGross,
+      operatingExpenses,
+      floorPlanInterest,
+      autoAcquisitionNotice,
+      startingCash,
+      startingInventory,
+      acquiredCount
+    );
+    nextState.notifications.push(dailySummary);
+
     return nextState;
+  }
+
+  private createDailySummary(
+    state: GameState,
+    soldCount: number,
+    sales: any,
+    serviceResult: any,
+    serviceGross: number,
+    opEx: number,
+    floorInterest: number,
+    autoAcquisition: string,
+    startingCash: number,
+    startingInventory: number,
+    acquiredCount: number
+  ): string {
+    const frontGross = sales.deals.reduce((acc: number, deal: any) => acc + deal.frontGross, 0);
+    const backGross = sales.deals.reduce((acc: number, deal: any) => acc + deal.backGross, 0);
+    const totalGross = frontGross + backGross + serviceGross;
+    const salesCash = sales.cashDelta;
+    const totalRevenue = salesCash + serviceGross;
+    const totalExpenses = opEx + floorInterest;
+    
+    // Calculate auto acquisition cost from the ending cash
+    const autoAcquisitionCost = startingCash + totalRevenue - totalExpenses - state.cash;
+    
+    const netCash = totalRevenue - totalExpenses - autoAcquisitionCost;
+    const netSign = netCash >= 0 ? '+' : '';
+    const endingInventory = state.inventory.filter(v => v.status === 'inStock').length;
+    const inventoryChange = endingInventory - startingInventory;
+    const inventorySign = inventoryChange >= 0 ? '+' : '';
+    
+    // Show the previous day's summary (the day that just completed)
+    const completedDay = state.day === 1 ? 30 : state.day - 1;
+    let summary = `📊 Day ${completedDay} Summary:\n\n`;
+    
+    // Sales Performance
+    summary += `━━━ 🚗 SALES ━━━\n`;
+    summary += `Units Sold: ${soldCount}\n`;
+    summary += `Front Gross: $${Math.round(frontGross).toLocaleString()}`;
+    if (soldCount > 0) summary += ` ($${Math.round(frontGross / soldCount).toLocaleString()}/unit)`;
+    summary += `\n`;
+    summary += `Back Gross: $${Math.round(backGross).toLocaleString()}`;
+    if (soldCount > 0) summary += ` ($${Math.round(backGross / soldCount).toLocaleString()}/unit)`;
+    summary += `\n`;
+    summary += `Total Sales Gross: $${Math.round(frontGross + backGross).toLocaleString()}\n\n`;
+    
+    // Service Performance
+    summary += `━━━ 🔧 SERVICE ━━━\n`;
+    summary += `Labor Hours: ${serviceResult.laborHours.toFixed(1)} hrs\n`;
+    summary += `Parts Revenue: $${Math.round(serviceResult.partsRevenue).toLocaleString()}\n`;
+    summary += `Service Gross: $${Math.round(serviceGross).toLocaleString()}\n`;
+    summary += `ROs Completed: ${serviceResult.completedCount}\n\n`;
+    
+    // Cash Flow
+    summary += `━━━ 💵 CASH FLOW ━━━\n`;
+    summary += `Starting Cash: $${Math.round(startingCash).toLocaleString()}\n`;
+    summary += `Revenue: +$${Math.round(totalRevenue).toLocaleString()}\n`;
+    summary += `Expenses: -$${Math.round(totalExpenses).toLocaleString()}\n`;
+    summary += `  • OpEx: $${Math.round(opEx).toLocaleString()}\n`;
+    summary += `  • Floor Interest: $${Math.round(floorInterest).toLocaleString()}\n`;
+    
+    if (autoAcquisitionCost > 0) {
+      summary += `Auto Restock: -$${Math.round(autoAcquisitionCost).toLocaleString()} (${acquiredCount} units)\n`;
+    }
+    
+    summary += `Net Change: ${netSign}$${Math.round(netCash).toLocaleString()}\n`;
+    summary += `Ending Cash: $${Math.round(state.cash).toLocaleString()}\n\n`;
+    
+    // Inventory
+    summary += `━━━ 📦 INVENTORY ━━━\n`;
+    summary += `Starting: ${startingInventory} units\n`;
+    summary += `Acquired: +${acquiredCount} | Sold: -${soldCount}\n`;
+    summary += `Ending: ${endingInventory} units (${inventorySign}${inventoryChange})`;
+    
+    return summary;
   }
 }

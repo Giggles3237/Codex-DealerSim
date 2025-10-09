@@ -1,4 +1,4 @@
-import { Coefficients, ConfigPreset } from './types';
+import { Coefficients, ConfigPreset, BusinessLevel } from './types';
 
 export const DEFAULT_COEFFICIENTS: Coefficients = {
   lead: {
@@ -90,7 +90,96 @@ export const CONFIG_PRESETS: ConfigPreset[] = [
   },
 ];
 
+export const DEFAULT_PRICING_STATE = {
+  globalPolicy: 'balanced' as const,
+  segmentPolicies: {},
+  agingDiscounts: {
+    days60: 0.03, // 3% discount at 60 days
+    days90: 0.06, // 6% discount at 90 days
+  },
+};
+
+export const PRICING_POLICY_MULTIPLIERS = {
+  aggressive: 0.95,    // Price 5% below calculated asking
+  balanced: 1.0,       // Use calculated asking price
+  conservative: 1.05,  // Price 5% above calculated asking
+  market: 1.0,         // Price based on desirability (dynamic)
+};
+
+export const BUSINESS_LEVELS: BusinessLevel[] = [
+  {
+    level: 1,
+    name: 'Small Lot',
+    maxAdvisors: 3,
+    maxTechnicians: 2,
+    maxInventorySlots: 15,
+    serviceBayCount: 2,
+    marketingBudget: 1000,
+    description: 'A small independent dealership. Start with basic inventory and minimal staff.',
+  },
+  {
+    level: 2,
+    name: 'Growing Dealership',
+    maxAdvisors: 5,
+    maxTechnicians: 4,
+    maxInventorySlots: 30,
+    serviceBayCount: 4,
+    marketingBudget: 2000,
+    unlockCost: 50000,
+    unlockRequirement: 'Earn $50,000 total revenue',
+    description: 'Expand your lot and hire more staff to handle increased volume.',
+  },
+  {
+    level: 3,
+    name: 'Regional Dealer',
+    maxAdvisors: 8,
+    maxTechnicians: 6,
+    maxInventorySlots: 60,
+    serviceBayCount: 6,
+    marketingBudget: 4000,
+    unlockCost: 200000,
+    unlockRequirement: 'Sell 100 vehicles',
+    description: 'A serious operation with multiple service bays and premium inventory.',
+  },
+  {
+    level: 4,
+    name: 'Mega Dealer',
+    maxAdvisors: 12,
+    maxTechnicians: 10,
+    maxInventorySlots: 100,
+    serviceBayCount: 10,
+    marketingBudget: 8000,
+    unlockCost: 500000,
+    unlockRequirement: 'Achieve 95+ CSI rating',
+    description: 'The big leagues - premium facilities and high-volume operations.',
+  },
+  {
+    level: 5,
+    name: 'Automotive Empire',
+    maxAdvisors: 20,
+    maxTechnicians: 15,
+    maxInventorySlots: 200,
+    serviceBayCount: 15,
+    marketingBudget: 15000,
+    unlockCost: 1000000,
+    unlockRequirement: 'Earn $1M total revenue',
+    description: 'The ultimate dealership empire with unlimited potential.',
+  },
+];
+
 export const GAME_CONSTANTS = {
   seasons: ['winter', 'spring', 'summer', 'fall'] as const,
   segments: ['luxury', 'performance', 'suv', 'sedan', 'compact', 'ev', 'crossover', 'convertible'] as const,
+};
+
+// Operating expense constants (daily rates)
+export const OPERATING_EXPENSES = {
+  advisorSalaryPerDay: 150,      // Daily cost per sales advisor (~$55k/year)
+  technicianSalaryPerDay: 180,   // Daily cost per technician (~$65k/year)
+  salesManagerSalaryPerDay: 300, // Daily cost for sales manager (~$110k/year)
+  salesManagerHireCost: 5000,    // One-time cost to hire sales manager
+  facilityBaseCost: 200,         // Base facility cost per day (utilities, insurance, etc.)
+  facilityPerSlot: 8,            // Additional cost per inventory slot per day
+  overheadBase: 100,             // Base daily overhead (admin, supplies, etc.)
+  floorPlanInterestRate: 0.00022, // Daily interest rate on floor plan financing (~8% APR / 365 days)
 };

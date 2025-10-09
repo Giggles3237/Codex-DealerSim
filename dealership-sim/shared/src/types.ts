@@ -1,5 +1,6 @@
 export type VehicleCondition = 'new' | 'used' | 'cpo' | 'bev';
 export type VehicleStatus = 'inStock' | 'pending' | 'sold';
+export type PricingPolicy = 'aggressive' | 'balanced' | 'conservative' | 'market';
 
 export interface Vehicle {
   id: string;
@@ -11,6 +12,8 @@ export interface Vehicle {
   cost: number;
   floor: number;
   asking: number;
+  baseAsking?: number; // Original calculated asking price before manual adjustments
+  manualPriceAdjustment?: number; // Manual price adjustment in dollars
   ageDays: number;
   desirability: number;
   condition: VehicleCondition;
@@ -45,6 +48,13 @@ export interface Technician {
   comebackRate: number;
   morale: number;
   active: boolean;
+}
+
+export interface SalesManager {
+  id: string;
+  name: string;
+  hiredDate: string;
+  salary: number; // Daily salary
 }
 
 export interface Customer {
@@ -94,6 +104,15 @@ export interface EconomyState {
 export interface MarketingState {
   spendPerDay: number;
   leadMultiplier: number;
+}
+
+export interface PricingState {
+  globalPolicy: PricingPolicy;
+  segmentPolicies: Partial<Record<Vehicle['segment'], PricingPolicy>>;
+  agingDiscounts: {
+    days60: number; // Percentage discount at 60 days
+    days90: number; // Percentage discount at 90 days
+  };
 }
 
 export interface PipelineState {
@@ -172,6 +191,8 @@ export interface DailyReport {
   serviceComebackRate: number;
   cash: number;
   marketingSpend: number;
+  operatingExpenses: number; // Daily operating expenses (salaries, rent, overhead)
+  floorPlanInterest: number; // Daily interest on inventory floor plan financing
   moraleIndex: number;
   csi: number;
 }
@@ -198,6 +219,33 @@ export interface MonthlyReport {
   moraleTrend: number;
   trainingCompletions: number;
   csi: number;
+  operatingExpenses: number; // Monthly operating expenses
+  floorPlanInterest: number; // Monthly floor plan interest
+}
+
+export interface BusinessLevel {
+  level: number;
+  name: string;
+  maxAdvisors: number;
+  maxTechnicians: number;
+  maxInventorySlots: number;
+  serviceBayCount: number;
+  marketingBudget: number;
+  unlockCost?: number;
+  unlockRequirement?: string;
+  description: string;
+}
+
+export interface LeadActivity {
+  id: string;
+  timestamp: string;
+  advisorId?: string;
+  advisorName?: string;
+  customerType: string;
+  outcome: 'lead' | 'appointment' | 'sale' | 'no_show';
+  vehicleId?: string;
+  vehicleInfo?: string;
+  gross?: number;
 }
 
 export interface GameState {
@@ -210,12 +258,14 @@ export interface GameState {
   inventory: Vehicle[];
   advisors: SalesAdvisor[];
   technicians: Technician[];
+  salesManager: SalesManager | null; // Unlocks auto-advance when hired
   pipeline: PipelineState;
   activeDeals: Deal[];
   recentDeals: Deal[];
   serviceQueue: ServiceQueueItem[];
   completedROs: RepairOrder[];
   marketing: MarketingState;
+  pricing: PricingState;
   economy: EconomyState;
   coefficients: Coefficients;
   csi: number;
@@ -223,6 +273,13 @@ export interface GameState {
   dailyHistory: DailyReport[];
   monthlyReports: MonthlyReport[];
   notifications: string[];
+  businessLevel: number;
+  totalRevenue: number;
+  lifetimeSales: number;
+  unlockedFeatures: string[];
+  leadActivity: LeadActivity[];
+  salesGoal: number; // Annual sales goal (SPG)
+  autoRestockEnabled: boolean; // Toggle for automatic inventory restocking
 }
 
 export interface HealthCheckResult {
@@ -232,9 +289,14 @@ export interface HealthCheckResult {
   message: string;
 }
 
+// Deep partial helper type for nested objects
+export type DeepPartial<T> = {
+  [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
+};
+
 export interface ConfigPreset {
   id: string;
   name: string;
   description: string;
-  coefficients: Partial<Coefficients>;
+  coefficients: DeepPartial<Coefficients>;
 }

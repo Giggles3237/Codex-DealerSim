@@ -11,6 +11,18 @@ import { RNG } from '../../utils/random';
 import { diminishingReturns, clamp, sigmoid } from '../../utils/math';
 import { CUSTOMER_ARCHETYPES, ADVISOR_ARCHETYPES } from '../balance/archetypes';
 
+export interface LeadActivity {
+  id: string;
+  timestamp: string;
+  advisorId?: string;
+  advisorName?: string;
+  customerType: string;
+  outcome: 'lead' | 'appointment' | 'sale' | 'no_show';
+  vehicleId?: string;
+  vehicleInfo?: string;
+  gross?: number;
+}
+
 export interface SalesDayResult {
   deals: Deal[];
   soldVehicles: Vehicle[];
@@ -22,6 +34,7 @@ export interface SalesDayResult {
   csiDelta: number;
   moraleDelta: number;
   customers: Customer[];
+  leadActivity: LeadActivity[];
 }
 
 const BASE_COST_PER_LEAD = 8;
@@ -156,9 +169,39 @@ export const simulateSalesDay = (
   const soldVehicles: Vehicle[] = [];
   const remainingInventory = [...inventory];
   const customers: Customer[] = [];
+  const leadActivity: LeadActivity[] = [];
   let cashDelta = -marketing.spendPerDay;
   let csiDelta = 0;
   let moraleDelta = 0;
+
+  // Generate lead activity
+  const now = new Date().toISOString();
+  
+  // Create lead activity for each step in the funnel
+  for (let i = 0; i < leads; i += 1) {
+    const customer = createCustomer(rng);
+    leadActivity.push({
+      id: `lead-${Date.now()}-${i}`,
+      timestamp: now,
+      customerType: customer.type,
+      outcome: 'lead'
+    });
+  }
+  
+  // Create appointment activity
+  for (let i = 0; i < appointments; i += 1) {
+    const advisor = pickAdvisor(advisors, rng);
+    if (advisor) {
+      leadActivity.push({
+        id: `appt-${Date.now()}-${i}`,
+        timestamp: now,
+        advisorId: advisor.id,
+        advisorName: advisor.name,
+        customerType: 'Walk-in',
+        outcome: 'appointment'
+      });
+    }
+  }
 
   for (let i = 0; i < dealsWorked; i += 1) {
     const advisor = pickAdvisor(advisors, rng);
@@ -195,11 +238,35 @@ export const simulateSalesDay = (
       if (index >= 0) {
         remainingInventory.splice(index, 1);
       }
-      cashDelta += soldPrice - (vehicle.cost + vehicle.reconCost + vehicle.pack);
+      // Add full sale price back to cash (cost was already paid when vehicle was acquired)
+      cashDelta += soldPrice;
       csiDelta += deal.csiImpact;
       moraleDelta += advisor.morale > 60 ? 0.2 : 0.1;
+      
+      // Add sale activity
+      leadActivity.push({
+        id: `sale-${Date.now()}-${i}`,
+        timestamp: now,
+        advisorId: advisor.id,
+        advisorName: advisor.name,
+        customerType: customer.type,
+        outcome: 'sale',
+        vehicleId: vehicle.id,
+        vehicleInfo: `${vehicle.year} ${vehicle.make} ${vehicle.model}`,
+        gross: deal.totalGross
+      });
     } else {
       moraleDelta -= 0.05;
+      
+      // Add no-sale activity
+      leadActivity.push({
+        id: `no-sale-${Date.now()}-${i}`,
+        timestamp: now,
+        advisorId: advisor.id,
+        advisorName: advisor.name,
+        customerType: customer.type,
+        outcome: 'no_show'
+      });
     }
   }
 
@@ -214,6 +281,7 @@ export const simulateSalesDay = (
     csiDelta,
     moraleDelta,
     customers,
+    leadActivity,
   };
 };
 

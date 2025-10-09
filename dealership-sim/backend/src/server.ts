@@ -11,6 +11,7 @@ import staffRoutes from './routes/staff';
 import inventoryRoutes from './routes/inventory';
 import marketingRoutes from './routes/marketing';
 import reportsRoutes from './routes/reports';
+import businessRoutes from './routes/business';
 
 interface StartOptions {
   port: number;
@@ -32,20 +33,23 @@ export const startServer = async ({ port, seedMode }: StartOptions) => {
   const engine = new SimulationEngine(repository, { seed: 1337 });
 
   let interval: NodeJS.Timer | null = null;
-  const baseTickInterval = Number(process.env.TICK_INTERVAL_MS) || 1000;
+  const baseTickInterval = Number(process.env.TICK_INTERVAL_MS) || 2000; // Slower base interval
 
   const schedule = () => {
     if (interval) {
       clearInterval(interval);
     }
     const state = engine.getState();
-    if (!state.paused) {
+    // Only auto-advance if sales manager is hired and not paused
+    if (!state.paused && state.salesManager) {
+      // More reasonable speeds: 1x = 2s, 5x = 1s, 30x = 0.5s
+      const tickInterval = Math.max(500, baseTickInterval / Math.min(state.speed, 5));
       interval = setInterval(() => {
         const updated = engine.tick(state.speed);
         if (savePath) {
           saveStateToFile(updated, savePath).catch((error) => console.error('Failed to save state', error));
         }
-      }, Math.max(200, baseTickInterval / state.speed));
+      }, tickInterval);
     }
   };
 
@@ -66,6 +70,7 @@ export const startServer = async ({ port, seedMode }: StartOptions) => {
   app.use('/api', inventoryRoutes);
   app.use('/api', marketingRoutes);
   app.use('/api', reportsRoutes);
+  app.use('/api', businessRoutes);
 
   app.post('/api/save', async (req, res) => {
     const state = engine.getState();

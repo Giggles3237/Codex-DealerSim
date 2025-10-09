@@ -2,9 +2,11 @@ import {
   Coefficients,
   DailyReport,
   DEFAULT_COEFFICIENTS,
+  DEFAULT_PRICING_STATE,
   GameState,
   MarketingState,
   MonthlyReport,
+  PricingState,
   SalesAdvisor,
   Technician,
   Vehicle,
@@ -13,7 +15,7 @@ import { ADVISOR_ARCHETYPES, TECH_ARCHETYPES } from '../core/balance/archetypes'
 import { RNG } from '../utils/random';
 import { createVehicle } from '../core/services/inventory';
 
-const STARTING_CASH = 2_000_000;
+const STARTING_CASH = 150_000; // Much smaller starting capital for tycoon feel
 const START_YEAR = 2024;
 const START_MONTH = 1;
 const START_DAY = 1;
@@ -23,8 +25,8 @@ const baseMarketing: MarketingState = {
   leadMultiplier: 1,
 };
 
-const createAdvisors = (rng: RNG): SalesAdvisor[] => {
-  return ADVISOR_ARCHETYPES.slice(0, 10).map((arch, index) => ({
+const createAdvisors = (rng: RNG, maxAdvisors: number = 3): SalesAdvisor[] => {
+  return ADVISOR_ARCHETYPES.slice(0, maxAdvisors).map((arch, index) => ({
     id: `advisor-${index + 1}`,
     name: arch.name,
     archetype: arch.id,
@@ -40,8 +42,8 @@ const createAdvisors = (rng: RNG): SalesAdvisor[] => {
   }));
 };
 
-const createTechnicians = (rng: RNG): Technician[] => {
-  return TECH_ARCHETYPES.slice(0, 8).map((arch, index) => ({
+const createTechnicians = (rng: RNG, maxTechnicians: number = 2): Technician[] => {
+  return TECH_ARCHETYPES.slice(0, maxTechnicians).map((arch, index) => ({
     id: `tech-${index + 1}`,
     name: arch.name,
     archetype: arch.id,
@@ -52,10 +54,10 @@ const createTechnicians = (rng: RNG): Technician[] => {
   }));
 };
 
-const createInventory = (rng: RNG, coefficients: Coefficients): Vehicle[] => {
+const createInventory = (rng: RNG, coefficients: Coefficients, pricingState: PricingState, maxSlots: number = 15): Vehicle[] => {
   const segments: Vehicle['segment'][] = ['suv', 'sedan', 'crossover', 'compact', 'ev', 'performance', 'luxury', 'convertible'];
   const vehicles: Vehicle[] = [];
-  while (vehicles.length < 40) {
+  while (vehicles.length < maxSlots) {
     const baseCost = 28000 * (0.9 + rng.nextFloat() * 0.6);
     const segment = rng.pick(segments);
     const condition: Vehicle['condition'] = rng.pick(['new', 'used', 'cpo', 'bev']);
@@ -71,6 +73,7 @@ const createInventory = (rng: RNG, coefficients: Coefficients): Vehicle[] => {
       rng,
       coefficients,
       baseCost,
+      pricingState,
     );
     vehicles.push(vehicle);
   }
@@ -99,6 +102,8 @@ const createHistory = (rng: RNG): { daily: DailyReport[]; monthly: MonthlyReport
       serviceComebackRate: 0.08 + rng.nextFloat() * 0.04,
       cash,
       marketingSpend: baseMarketing.spendPerDay,
+      operatingExpenses: 800, // Historical operating expenses estimate
+      floorPlanInterest: 50, // Historical floor plan interest estimate
       moraleIndex: 70,
       csi: 82,
     });
@@ -125,15 +130,20 @@ const createHistory = (rng: RNG): { daily: DailyReport[]; monthly: MonthlyReport
     moraleTrend: 1.2,
     trainingCompletions: 4,
     csi: 82,
+    operatingExpenses: daily.reduce((acc, report) => acc + report.operatingExpenses, 0),
+    floorPlanInterest: daily.reduce((acc, report) => acc + report.floorPlanInterest, 0),
   });
   return { daily, monthly };
 };
 
 export const createSeedState = (seed = 42, coefficients: Coefficients = DEFAULT_COEFFICIENTS): GameState => {
   const rng = new RNG(seed);
-  const advisors = createAdvisors(rng);
-  const technicians = createTechnicians(rng);
-  const inventory = createInventory(rng, coefficients);
+  const pricingState: PricingState = { ...DEFAULT_PRICING_STATE };
+  
+  // Start small - Level 1 business constraints
+  const advisors = createAdvisors(rng, 3); // Only 3 advisors
+  const technicians = createTechnicians(rng, 2); // Only 2 technicians
+  const inventory = createInventory(rng, coefficients, pricingState, 8); // Only 8 vehicles to start
   const history = createHistory(rng);
 
   const state: GameState = {
@@ -141,17 +151,19 @@ export const createSeedState = (seed = 42, coefficients: Coefficients = DEFAULT_
     month: START_MONTH,
     year: START_YEAR,
     speed: 1,
-    paused: false,
+    paused: true, // Start paused since no sales manager
     cash: STARTING_CASH,
     inventory,
     advisors,
     technicians,
-    pipeline: { leads: 30, appointments: 18, deals: 10 },
+    salesManager: null, // Must hire to enable auto-advance
+    pipeline: { leads: 15, appointments: 8, deals: 5 }, // Smaller pipeline
     activeDeals: [],
     recentDeals: [],
     serviceQueue: [],
     completedROs: [],
-    marketing: { ...baseMarketing },
+    marketing: { spendPerDay: 500, leadMultiplier: 1 }, // Smaller marketing budget
+    pricing: pricingState,
     economy: {
       demandIndex: 1,
       interestRate: 5.2,
@@ -164,7 +176,14 @@ export const createSeedState = (seed = 42, coefficients: Coefficients = DEFAULT_
     moraleIndex: 72,
     dailyHistory: history.daily,
     monthlyReports: history.monthly,
-    notifications: ['Welcome to Dealership Sim! Use the control panel to tune your store.'],
+    notifications: ['Welcome to your small lot! Hire a Sales Manager to enable auto-advance, or advance each day manually.'],
+    businessLevel: 1,
+    totalRevenue: 0,
+    lifetimeSales: 0,
+    unlockedFeatures: ['basic_operations'],
+    leadActivity: [],
+    salesGoal: 120, // Start with a modest goal of 120 cars per year (10/month)
+    autoRestockEnabled: false, // Default to manual inventory management
   };
   return state;
 };

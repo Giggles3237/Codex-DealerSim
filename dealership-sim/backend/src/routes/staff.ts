@@ -2,12 +2,13 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { EngineRequest } from './types';
 import { ADVISOR_ARCHETYPES, TECH_ARCHETYPES } from '../core/balance/archetypes';
+import { OPERATING_EXPENSES } from '@dealership/shared';
 
 const router = Router();
 
 const hireSchema = z.object({
-  role: z.enum(['advisor', 'tech']),
-  archetype: z.string(),
+  role: z.enum(['advisor', 'tech', 'manager']),
+  archetype: z.string().optional(),
 });
 
 const trainSchema = z.object({
@@ -21,6 +22,27 @@ router.post('/staff/hire', (req: EngineRequest, res) => {
     return res.status(400).json({ error: parsed.error.flatten() });
   }
   const state = req.engine.getState();
+  
+  if (parsed.data.role === 'manager') {
+    if (state.salesManager) {
+      return res.status(400).json({ error: 'You already have a Sales Manager' });
+    }
+    if (state.cash < OPERATING_EXPENSES.salesManagerHireCost) {
+      return res.status(400).json({ error: 'Not enough cash to hire Sales Manager' });
+    }
+    state.cash = Math.round(state.cash - OPERATING_EXPENSES.salesManagerHireCost);
+    state.salesManager = {
+      id: `manager-${Date.now()}`,
+      name: 'Sales Manager',
+      hiredDate: `${state.year}-${String(state.month).padStart(2, '0')}-${String(state.day).padStart(2, '0')}`,
+      salary: OPERATING_EXPENSES.salesManagerSalaryPerDay,
+    };
+    state.notifications.push(`Hired Sales Manager! Auto-advance is now enabled.`);
+    req.repository.setState(state);
+    res.json(state);
+    return;
+  }
+  
   if (parsed.data.role === 'advisor') {
     const archetype = ADVISOR_ARCHETYPES.find((arch) => arch.id === parsed.data.archetype);
     if (!archetype) {

@@ -1,4 +1,4 @@
-import { Coefficients, DEFAULT_COEFFICIENTS, HealthCheckResult, Vehicle } from '@dealership/shared';
+import { Coefficients, DEFAULT_COEFFICIENTS, HealthCheckResult, Vehicle, DeepPartial } from '@dealership/shared';
 
 export const cloneCoefficients = (coefficients: Coefficients): Coefficients => ({
   lead: { ...coefficients.lead },
@@ -12,7 +12,7 @@ export const cloneCoefficients = (coefficients: Coefficients): Coefficients => (
   guardrails: { ...coefficients.guardrails },
 });
 
-export const mergeCoefficients = (base: Coefficients, patch: Partial<Coefficients>): Coefficients => {
+export const mergeCoefficients = (base: Coefficients, patch: DeepPartial<Coefficients>): Coefficients => {
   const next = cloneCoefficients(base);
   (Object.keys(patch) as (keyof Coefficients)[]).forEach((key) => {
     const value = patch[key];

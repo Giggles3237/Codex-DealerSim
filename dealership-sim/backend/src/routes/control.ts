@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { EngineRequest } from './types';
+import { createSeedState } from '../data/seed';
 
 const router = Router();
 
@@ -19,6 +20,13 @@ router.post('/speed', (req: EngineRequest, res) => {
   req.repository.setState(state);
   req.schedule();
   res.json(state);
+});
+
+router.post('/reset', (req: EngineRequest, res) => {
+  const newState = createSeedState();
+  req.repository.setState(newState);
+  req.schedule();
+  res.json(newState);
 });
 
 export default router;

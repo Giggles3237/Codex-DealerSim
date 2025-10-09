@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
-import { CONFIG_PRESETS, GameState, HealthCheckResult, Coefficients } from '@dealership/shared';
+import { CONFIG_PRESETS, GameState, HealthCheckResult, Coefficients, PricingPolicy, Vehicle, DeepPartial } from '@dealership/shared';
 import { safeGet, safePost, safePut } from '../lib/api';
 
 type AcquirePack = 'desirable' | 'neutral' | 'undesirable';
@@ -12,13 +12,22 @@ interface GameStore {
   error?: string;
   toasts: { id: string; title: string; description: string }[];
   initialize: () => Promise<void>;
+  refreshState: () => Promise<void>;
   tick: (days?: number) => Promise<void>;
   setPaused: (paused: boolean) => Promise<void>;
   setSpeed: (speed: 1 | 5 | 30) => Promise<void>;
   acquireInventory: (pack: AcquirePack, qty: number) => Promise<void>;
   updateMarketing: (spend: number) => Promise<void>;
-  updateCoefficients: (patch: Partial<Coefficients>) => Promise<void>;
+  updateCoefficients: (patch: DeepPartial<Coefficients>) => Promise<void>;
   applyPreset: (id: string) => Promise<void>;
+  setPricingPolicy: (globalPolicy?: PricingPolicy, segment?: Vehicle['segment'], policy?: PricingPolicy) => Promise<void>;
+  adjustVehiclePrice: (vehicleId: string, adjustment: number) => Promise<void>;
+  setAgingDiscounts: (days60: number, days90: number) => Promise<void>;
+  resetGame: () => Promise<void>;
+  upgradeBusiness: () => Promise<void>;
+  setSalesGoal: (goal: number) => Promise<void>;
+  hireManager: () => Promise<void>;
+  setAutoRestock: (enabled: boolean) => Promise<void>;
   clearError: () => void;
   dismissToast: (id: string) => void;
 }
@@ -35,9 +44,21 @@ export const useGameStore = create<GameStore>()(
         const state = await safeGet<GameState>('/api/state');
         const config = await safeGet<{ coefficients: Coefficients; health: HealthCheckResult }>('/api/config');
         set({ gameState: state, health: config.health, loading: false });
-        get().pushNotifications(state.notifications);
+        if (state.notifications) {
+          get().pushNotifications(state.notifications);
+        }
       } catch (error) {
+        console.error('Failed to initialize game:', error);
         set({ loading: false, error: 'Failed to load game state' });
+      }
+    },
+    async refreshState() {
+      try {
+        const state = await safeGet<GameState>('/api/state');
+        set({ gameState: state });
+      } catch (error) {
+        console.error('Failed to refresh state:', error);
+        // Silent fail for background refresh
       }
     },
     async tick(days = 1) {
@@ -64,8 +85,11 @@ export const useGameStore = create<GameStore>()(
         const state = await safePost<GameState>('/api/inventory/acquire', { pack, qty });
         set({ gameState: state });
         get().pushNotifications([`Acquired ${qty} vehicles (${pack})`]);
-      } catch (error) {
-        set({ error: 'Acquisition failed' });
+      } catch (error: any) {
+        console.error('Acquisition failed:', error);
+        const errorMessage = error.response?.data?.error || 'Acquisition failed';
+        set({ error: typeof errorMessage === 'string' ? errorMessage : 'Acquisition failed' });
+        get().pushNotifications([`Error: ${typeof errorMessage === 'string' ? errorMessage : 'Acquisition failed'}`]);
       }
     },
     async updateMarketing(spend) {
@@ -85,6 +109,88 @@ export const useGameStore = create<GameStore>()(
       const preset = CONFIG_PRESETS.find((item) => item.id === id);
       if (!preset) return;
       await get().updateCoefficients(preset.coefficients);
+    },
+    async setPricingPolicy(globalPolicy, segment, policy) {
+      try {
+        const state = await safePost<GameState>('/api/inventory/pricing-policy', {
+          globalPolicy,
+          segment,
+          policy,
+        });
+        set({ gameState: state });
+        get().pushNotifications(state.notifications);
+      } catch (error) {
+        set({ error: 'Failed to update pricing policy' });
+      }
+    },
+    async adjustVehiclePrice(vehicleId, adjustment) {
+      try {
+        const state = await safePost<GameState>('/api/inventory/adjust-price', {
+          vehicleId,
+          adjustment,
+        });
+        set({ gameState: state });
+      } catch (error) {
+        set({ error: 'Failed to adjust vehicle price' });
+      }
+    },
+    async setAgingDiscounts(days60, days90) {
+      try {
+        const state = await safePost<GameState>('/api/inventory/aging-discounts', {
+          days60,
+          days90,
+        });
+        set({ gameState: state });
+        get().pushNotifications(state.notifications);
+      } catch (error) {
+        set({ error: 'Failed to update aging discounts' });
+      }
+    },
+    async resetGame() {
+      set({ loading: true, error: undefined });
+      try {
+        const state = await safePost<GameState>('/api/reset');
+        const config = await safeGet<{ coefficients: Coefficients; health: HealthCheckResult }>('/api/config');
+        set({ gameState: state, health: config.health, loading: false });
+        get().pushNotifications(['Game has been reset to initial state']);
+      } catch (error) {
+        set({ loading: false, error: 'Failed to reset game' });
+      }
+    },
+    async upgradeBusiness() {
+      try {
+        const state = await safePost<GameState>('/api/business/upgrade');
+        set({ gameState: state });
+        get().pushNotifications([`Business upgraded to Level ${state.businessLevel}!`]);
+      } catch (error) {
+        set({ error: 'Failed to upgrade business' });
+      }
+    },
+    async setSalesGoal(goal: number) {
+      try {
+        const state = await safePost<GameState>('/api/sales-goal', { goal });
+        set({ gameState: state });
+        get().pushNotifications([`Sales goal updated to ${goal} cars/year`]);
+      } catch (error) {
+        set({ error: 'Failed to update sales goal' });
+      }
+    },
+    async hireManager() {
+      try {
+        const state = await safePost<GameState>('/api/staff/hire', { role: 'manager' });
+        set({ gameState: state });
+        get().pushNotifications(['Sales Manager hired! You can now use auto-advance.']);
+      } catch (error: any) {
+        set({ error: error.message || 'Failed to hire Sales Manager' });
+      }
+    },
+    async setAutoRestock(enabled: boolean) {
+      try {
+        const state = await safePost<GameState>('/api/config/auto-restock', { enabled });
+        set({ gameState: state });
+      } catch (error: any) {
+        set({ error: error.message || 'Failed to update auto-restock' });
+      }
     },
     clearError() {
       set({ error: undefined });

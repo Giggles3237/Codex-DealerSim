@@ -1,0 +1,12 @@
+{
+  "buildCommand": "cd ../ && pnpm build --filter=@dealership/frontend",
+  "outputDirectory": "frontend/dist",
+  "installCommand": "cd ../ && pnpm install",
+  "framework": "vite",
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "https://your-railway-backend-url.railway.app/api/$1"
+    }
+  ]
+}

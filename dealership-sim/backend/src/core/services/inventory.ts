@@ -1,5 +1,5 @@
-import { v4 as uuid } from 'uuid';
-import { Coefficients, Vehicle } from '@dealership/shared';
+import { randomUUID } from 'crypto';
+import { Coefficients, Vehicle, PricingPolicy, PricingState, PRICING_POLICY_MULTIPLIERS } from '@dealership/shared';
 import { RNG } from '../../utils/random';
 import { clamp } from '../../utils/math';
 
@@ -39,10 +39,11 @@ export const ageInventory = (inventory: Vehicle[], economyDemand: number): Vehic
     const bucket = AGE_DEPRECIATION.find((entry) => ageDays <= entry.max) ?? AGE_DEPRECIATION[AGE_DEPRECIATION.length - 1];
     const desirabilityFactor = (vehicle.desirability / 100) * economyDemand;
     const depreciation = vehicle.asking * bucket.rate * (1.2 - desirabilityFactor / 2);
+    const newAsking = Math.round((vehicle.asking - depreciation) / 100) * 100;
     return {
       ...vehicle,
       ageDays,
-      asking: Math.max(vehicle.floor, vehicle.asking - depreciation),
+      asking: Math.max(vehicle.floor, newAsking),
       desirability: clamp(vehicle.desirability - bucket.rate * 100 * (1.1 - desirabilityFactor), 10, 100),
     };
   });
@@ -61,28 +62,79 @@ export const calculateDesirability = (vehicle: Vehicle, economySeason: string, d
   return clamp(base + segmentDemand * 15 + seasonBonus + conditionBonus + demandIndex * 10, 20, 100);
 };
 
+export const applyPricingPolicy = (
+  baseAsking: number,
+  policy: PricingPolicy,
+  desirability: number,
+  ageDays: number,
+  agingDiscounts: PricingState['agingDiscounts'],
+): number => {
+  let multiplier = PRICING_POLICY_MULTIPLIERS[policy];
+  
+  // Market policy adjusts based on desirability
+  if (policy === 'market') {
+    if (desirability >= 80) {
+      multiplier = 1.08; // High desirability: price premium
+    } else if (desirability >= 60) {
+      multiplier = 1.02; // Good desirability: slight premium
+    } else if (desirability >= 40) {
+      multiplier = 0.98; // Average: slight discount
+    } else {
+      multiplier = 0.92; // Low desirability: deeper discount
+    }
+  }
+  
+  let asking = baseAsking * multiplier;
+  
+  // Apply aging discounts
+  if (ageDays >= 90) {
+    asking *= (1 - agingDiscounts.days90);
+  } else if (ageDays >= 60) {
+    asking *= (1 - agingDiscounts.days60);
+  }
+  
+  return asking;
+};
+
 export const createVehicle = (
   overrides: Partial<Vehicle>,
   rng: RNG,
   coefficients: Coefficients,
   baseCost: number,
+  pricingState?: PricingState,
 ): Vehicle => {
   const holdbackPct = coefficients.pricing.holdbackPct;
   const pack = coefficients.pricing.pack;
   const recon = Math.max(200, coefficients.pricing.reconMean * (0.8 + rng.nextFloat() * 0.4));
-  const asking = baseCost * (1.18 + rng.nextFloat() * 0.08);
+  const baseAsking = Math.round(baseCost * (1.18 + rng.nextFloat() * 0.08) / 100) * 100;
+  
+  const segment = overrides.segment ?? 'sedan';
+  const desirability = overrides.desirability ?? clamp(55 + rng.nextFloat() * 30, 30, 100);
+  const ageDays = overrides.ageDays ?? 0;
+  
+  // Apply pricing policy if provided
+  let asking = baseAsking;
+  if (pricingState) {
+    const policy = pricingState.segmentPolicies[segment] ?? pricingState.globalPolicy;
+    asking = Math.round(applyPricingPolicy(baseAsking, policy, desirability, ageDays, pricingState.agingDiscounts) / 100) * 100;
+  }
+  
+  const roundedCost = Math.round(baseCost / 100) * 100;
+  const floor = baseCost * 1.02; // Keep floor precise for interest calculations
+  
   return {
-    id: uuid(),
+    id: randomUUID(),
     stockNumber: `STK-${Math.floor(rng.nextFloat() * 90000 + 10000)}`,
     year: overrides.year ?? 2024,
     make: overrides.make ?? 'Bimmer',
     model: overrides.model ?? 'Series',
-    segment: overrides.segment ?? 'sedan',
-    cost: baseCost,
-    floor: baseCost * 1.02,
+    segment,
+    cost: roundedCost,
+    floor: floor,
     asking,
-    ageDays: overrides.ageDays ?? 0,
-    desirability: overrides.desirability ?? clamp(55 + rng.nextFloat() * 30, 30, 100),
+    baseAsking,
+    ageDays,
+    desirability,
     condition: overrides.condition ?? 'new',
     reconCost: recon,
     holdbackPct: holdbackPct,
@@ -96,13 +148,14 @@ export const acquirePack = (
   qty: number,
   rng: RNG,
   coefficients: Coefficients,
+  pricingState?: PricingState,
 ): AcquirePackResult => {
   const vehicles: Vehicle[] = [];
   let totalCost = 0;
   for (let i = 0; i < qty; i += 1) {
     const baseCostMultiplier =
       type === 'desirable' ? 1.12 : type === 'neutral' ? 1 : type === 'undesirable' ? 0.88 : 1;
-    const baseCost = 28000 * baseCostMultiplier * (0.9 + rng.nextFloat() * 0.3);
+    const baseCost = Math.round(28000 * baseCostMultiplier * (0.9 + rng.nextFloat() * 0.3) / 100) * 100;
     const segmentPool: Vehicle['segment'][] = type === 'desirable' ? ['suv', 'ev', 'crossover'] : type === 'undesirable' ? ['sedan', 'compact'] : ['sedan', 'crossover', 'suv'];
     const condition: Vehicle['condition'] = type === 'desirable' ? 'bev' : type === 'undesirable' ? 'used' : 'cpo';
     const vehicle = createVehicle(
@@ -119,11 +172,12 @@ export const acquirePack = (
       rng,
       coefficients,
       baseCost,
+      pricingState,
     );
     totalCost += baseCost + vehicle.reconCost + vehicle.pack;
     vehicles.push(vehicle);
   }
-  return { vehicles, cost: totalCost };
+  return { vehicles, cost: Math.round(totalCost / 100) * 100 };
 };
 
 export const estimateDaysSupply = (inventory: Vehicle[], trailingSales: number): number => {
@@ -139,18 +193,19 @@ export const autoRestock = (
   coefficients: Coefficients,
   rng: RNG,
   trailingSales: number,
+  pricingState?: PricingState,
 ): { newVehicles: Vehicle[]; cashSpent: number } => {
   const daysSupply = estimateDaysSupply(inventory, Math.max(1, trailingSales));
   if (daysSupply >= coefficients.inventory.minDaysSupply) {
     return { newVehicles: [], cashSpent: 0 };
   }
   const units = coefficients.inventory.bulkBuyUnits;
-  const pack = acquirePack('neutral', units, rng, coefficients);
+  const pack = acquirePack('neutral', units, rng, coefficients, pricingState);
   const costPerUnit = pack.cost / units;
   const affordableUnits = Math.min(units, Math.floor(cash / costPerUnit));
   if (affordableUnits <= 0) {
     return { newVehicles: [], cashSpent: 0 };
   }
-  const selected = acquirePack('neutral', affordableUnits, rng, coefficients);
+  const selected = acquirePack('neutral', affordableUnits, rng, coefficients, pricingState);
   return { newVehicles: selected.vehicles, cashSpent: selected.cost };
 };
