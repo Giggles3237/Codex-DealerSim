@@ -153,36 +153,51 @@ const computeBackGross = (
     : 0;
 };
 
-export const simulateSalesDay = (
+export const simulateSalesHour = (
   advisors: SalesAdvisor[],
   inventory: Vehicle[],
   marketing: MarketingState,
   economy: EconomyState,
   coefficients: Coefficients,
   rng: RNG,
+  hour: number, // Current hour (9-21)
 ): SalesDayResult => {
-  const leads = Math.round(computeLeadVolume(marketing, economy, coefficients));
-  const appointments = Math.round(leads * (0.45 + economy.demandIndex * 0.15));
-  const dealsWorked = Math.round(appointments * 0.6);
+  // Distribute daily activity across 12 business hours (9 AM - 9 PM)
+  // More activity during peak hours (10 AM - 2 PM, 5 PM - 8 PM)
+  let hourMultiplier = 1.0;
+  if (hour >= 10 && hour <= 14) {
+    hourMultiplier = 1.3; // Lunch rush
+  } else if (hour >= 17 && hour <= 20) {
+    hourMultiplier = 1.2; // Evening rush
+  } else if (hour === 9 || hour === 21) {
+    hourMultiplier = 0.6; // Opening/closing hours are slower
+  }
+  
+  const dailyLeads = computeLeadVolume(marketing, economy, coefficients);
+  const leads = Math.max(0, Math.round((dailyLeads / 12) * hourMultiplier));
+  const appointments = Math.max(0, Math.round(leads * (0.45 + economy.demandIndex * 0.15)));
+  const dealsWorked = Math.max(0, Math.round(appointments * 0.6));
 
   const deals: Deal[] = [];
   const soldVehicles: Vehicle[] = [];
   const remainingInventory = [...inventory];
   const customers: Customer[] = [];
   const leadActivity: LeadActivity[] = [];
-  let cashDelta = -marketing.spendPerDay;
+  let cashDelta = 0; // No marketing spend here - that's handled at end of day
   let csiDelta = 0;
   let moraleDelta = 0;
 
-  // Generate lead activity
-  const now = new Date().toISOString();
+  // Generate lead activity with realistic timestamps for this hour
+  const now = new Date();
+  const baseTime = now.getTime();
   
   // Create lead activity for each step in the funnel
   for (let i = 0; i < leads; i += 1) {
     const customer = createCustomer(rng);
+    const timeOffset = Math.floor(rng.nextFloat() * 3600000); // Random time within the hour
     leadActivity.push({
-      id: `lead-${Date.now()}-${i}`,
-      timestamp: now,
+      id: `lead-${baseTime}-${i}`,
+      timestamp: new Date(baseTime + timeOffset).toISOString(),
       customerType: customer.type,
       outcome: 'lead'
     });
@@ -192,9 +207,10 @@ export const simulateSalesDay = (
   for (let i = 0; i < appointments; i += 1) {
     const advisor = pickAdvisor(advisors, rng);
     if (advisor) {
+      const timeOffset = Math.floor(rng.nextFloat() * 3600000);
       leadActivity.push({
-        id: `appt-${Date.now()}-${i}`,
-        timestamp: now,
+        id: `appt-${baseTime}-${i}`,
+        timestamp: new Date(baseTime + timeOffset).toISOString(),
         advisorId: advisor.id,
         advisorName: advisor.name,
         customerType: 'Walk-in',
@@ -220,12 +236,13 @@ export const simulateSalesDay = (
       const frontGross = computeFrontGross(vehicle, soldPrice, coefficients);
       const backGross = computeBackGross(advisor, coefficients, rng, economy);
       const totalGross = frontGross + backGross;
+      const timeOffset = Math.floor(rng.nextFloat() * 3600000);
       const deal: Deal = {
-        id: `deal-${Date.now()}-${i}`,
+        id: `deal-${baseTime}-${i}`,
         vehicleId: vehicle.id,
         advisorId: advisor.id,
         customerId: customer.id,
-        date: new Date().toISOString(),
+        date: new Date(baseTime + timeOffset).toISOString(),
         frontGross,
         backGross,
         totalGross,
@@ -244,9 +261,10 @@ export const simulateSalesDay = (
       moraleDelta += advisor.morale > 60 ? 0.2 : 0.1;
       
       // Add sale activity
+      const saleTimeOffset = Math.floor(rng.nextFloat() * 3600000);
       leadActivity.push({
-        id: `sale-${Date.now()}-${i}`,
-        timestamp: now,
+        id: `sale-${baseTime}-${i}`,
+        timestamp: new Date(baseTime + saleTimeOffset).toISOString(),
         advisorId: advisor.id,
         advisorName: advisor.name,
         customerType: customer.type,
@@ -259,9 +277,10 @@ export const simulateSalesDay = (
       moraleDelta -= 0.05;
       
       // Add no-sale activity
+      const noSaleTimeOffset = Math.floor(rng.nextFloat() * 3600000);
       leadActivity.push({
-        id: `no-sale-${Date.now()}-${i}`,
-        timestamp: now,
+        id: `no-sale-${baseTime}-${i}`,
+        timestamp: new Date(baseTime + noSaleTimeOffset).toISOString(),
         advisorId: advisor.id,
         advisorName: advisor.name,
         customerType: customer.type,
@@ -277,12 +296,63 @@ export const simulateSalesDay = (
     leadsGenerated: leads,
     appointments,
     dealsWorked,
-    cashDelta,
+    cashDelta: cashDelta, // Just the sales revenue for this hour
     csiDelta,
     moraleDelta,
     customers,
     leadActivity,
   };
+};
+
+// For backwards compatibility and testing
+export const simulateSalesDay = (
+  advisors: SalesAdvisor[],
+  inventory: Vehicle[],
+  marketing: MarketingState,
+  economy: EconomyState,
+  coefficients: Coefficients,
+  rng: RNG,
+): SalesDayResult => {
+  // Simulate all 12 hours at once
+  let aggregatedResult: SalesDayResult = {
+    deals: [],
+    soldVehicles: [],
+    remainingInventory: inventory,
+    leadsGenerated: 0,
+    appointments: 0,
+    dealsWorked: 0,
+    cashDelta: -marketing.spendPerDay,
+    csiDelta: 0,
+    moraleDelta: 0,
+    customers: [],
+    leadActivity: [],
+  };
+
+  for (let hour = 9; hour <= 21; hour++) {
+    const hourResult = simulateSalesHour(
+      advisors,
+      aggregatedResult.remainingInventory,
+      marketing,
+      economy,
+      coefficients,
+      rng,
+      hour
+    );
+    
+    aggregatedResult.deals.push(...hourResult.deals);
+    aggregatedResult.soldVehicles.push(...hourResult.soldVehicles);
+    aggregatedResult.remainingInventory = hourResult.remainingInventory;
+    aggregatedResult.leadsGenerated += hourResult.leadsGenerated;
+    aggregatedResult.appointments += hourResult.appointments;
+    aggregatedResult.dealsWorked += hourResult.dealsWorked;
+    aggregatedResult.cashDelta += hourResult.cashDelta;
+    aggregatedResult.csiDelta += hourResult.csiDelta;
+    aggregatedResult.moraleDelta += hourResult.moraleDelta;
+    aggregatedResult.customers.push(...hourResult.customers);
+    aggregatedResult.leadActivity.push(...hourResult.leadActivity);
+  }
+
+  return aggregatedResult;
 };
 
 export const __testing = {

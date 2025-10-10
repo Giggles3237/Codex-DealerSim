@@ -33,19 +33,19 @@ export const startServer = async ({ port, seedMode }: StartOptions) => {
   const engine = new SimulationEngine(repository, { seed: 1337 });
 
   let interval: NodeJS.Timer | null = null;
-  const baseTickInterval = Number(process.env.TICK_INTERVAL_MS) || 2000; // Slower base interval
+  const baseTickInterval = Number(process.env.TICK_INTERVAL_MS) || 2000; // 2 seconds per hour at 1x speed
 
   const schedule = () => {
     if (interval) {
       clearInterval(interval);
     }
     const state = engine.getState();
-    // Only auto-advance if sales manager is hired and not paused
-    if (!state.paused && state.salesManager) {
-      // More reasonable speeds: 1x = 2s, 5x = 1s, 30x = 0.5s
-      const tickInterval = Math.max(500, baseTickInterval / Math.min(state.speed, 5));
+    // Auto-advance hours during the day, pause at 9 PM for manual closeout
+    if (!state.paused) {
+      // Speeds: 1x = 2s/hour, 5x = 0.4s/hour, 30x = 0.067s/hour
+      const tickInterval = Math.max(67, baseTickInterval / state.speed);
       interval = setInterval(() => {
-        const updated = engine.tick(state.speed);
+        const updated = engine.tick(1); // Advance 1 hour per tick
         if (savePath) {
           saveStateToFile(updated, savePath).catch((error) => console.error('Failed to save state', error));
         }

@@ -51,20 +51,4 @@ router.post('/config/sales-goal', (req: EngineRequest, res) => {
   res.json(state);
 });
 
-const autoRestockSchema = z.object({
-  enabled: z.boolean(),
-});
-
-router.post('/config/auto-restock', (req: EngineRequest, res) => {
-  const parsed = autoRestockSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ error: parsed.error.flatten() });
-  }
-  const state = req.engine.getState();
-  state.autoRestockEnabled = parsed.data.enabled;
-  state.notifications.push(`Auto-restock ${parsed.data.enabled ? 'enabled' : 'disabled'}.`);
-  req.repository.setState(state);
-  res.json(state);
-});
-
 export default router;

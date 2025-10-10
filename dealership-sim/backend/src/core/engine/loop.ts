@@ -1,8 +1,8 @@
 import { Coefficients, DailyReport, GameState, MonthlyReport, PipelineState, OPERATING_EXPENSES, BUSINESS_LEVELS } from '@dealership/shared';
 import { GameRepository } from '../repository/gameRepository';
 import { RNG } from '../../utils/random';
-import { ageInventory, autoRestock } from '../services/inventory';
-import { simulateSalesDay } from '../services/sales';
+import { ageInventory } from '../services/inventory';
+import { simulateSalesHour } from '../services/sales';
 import { runServiceDepartment } from '../services/service';
 import { applyRandomEvents } from '../events/randomEvents';
 import { healthCheck } from '../balance/coefficients';
@@ -55,13 +55,18 @@ export class SimulationEngine {
     return this.repository.getState();
   }
 
-  tick(days = 1, forceTick = false): GameState {
+  tick(hours = 1, forceTick = false): GameState {
     let state = this.repository.getState();
-    for (let i = 0; i < days; i += 1) {
-      state = this.runDay(state, forceTick);
+    for (let i = 0; i < hours; i += 1) {
+      state = this.runHour(state, forceTick);
     }
     this.repository.setState(state);
     return state;
+  }
+
+  // Helper to advance a full day (for manual "Advance 1 Day" button)
+  tickDay(forceTick = false): GameState {
+    return this.tick(12, forceTick); // 12 hours = 1 business day
   }
 
   updateCoefficients(coefficients: Coefficients): void {
@@ -70,19 +75,157 @@ export class SimulationEngine {
     this.repository.setState(state);
   }
 
-  private runDay(state: GameState, forceTick = false): GameState {
+  private runHour(state: GameState, forceTick = false): GameState {
     // Allow manual advancement even when paused (unless auto-advancing)
     if (state.paused && !forceTick) {
       return state;
     }
 
-    const startingCash = state.cash; // Track starting cash
-    const startingInventory = state.inventory.filter(v => v.status === 'inStock').length; // Track starting inventory
-
     const nextState: GameState = {
       ...state,
+      hour: state.hour + 1,
+      notifications: [],
+      // Initialize daily accumulators if this is the first hour
+      todayDeals: state.todayDeals || [],
+      todaySoldVehicles: state.todaySoldVehicles || [],
+      todayLeadsGenerated: state.todayLeadsGenerated || 0,
+      todayAppointments: state.todayAppointments || 0,
+      todayDealsWorked: state.todayDealsWorked || 0,
+      todayCashDelta: state.todayCashDelta || 0,
+      todayCsiDelta: state.todayCsiDelta || 0,
+      todayMoraleDelta: state.todayMoraleDelta || 0,
+      todayServiceHours: state.todayServiceHours || 0,
+      todayServiceParts: state.todayServiceParts || 0,
+      todayServiceROs: state.todayServiceROs || 0,
+    };
+
+    // If we've reached end of business day (9 PM = hour 21), pause and wait for player to close out
+    const endOfDay = nextState.hour > 21;
+    if (endOfDay) {
+      // Don't advance yet, just pause and wait for manual closeout
+      nextState.hour = 21; // Keep at 9 PM
+      nextState.paused = true; // Pause for manual closeout
+      return nextState;
+    }
+
+    // During business hours, process sales and service activity
+    const currentInventory = nextState.inventory.filter(v => v.status === 'inStock');
+    
+    // Run hourly sales
+    const sales = simulateSalesHour(
+      nextState.advisors,
+      currentInventory,
+      nextState.marketing,
+      nextState.economy,
+      nextState.coefficients,
+      this.rng,
+      nextState.hour
+    );
+
+    // Update inventory with sold vehicles
+    const soldIds = new Set(sales.soldVehicles.map(v => v.id));
+    nextState.inventory = nextState.inventory
+      .filter(v => !soldIds.has(v.id))
+      .concat(sales.soldVehicles.map(v => ({ ...v, status: 'sold' as const })));
+
+    // Accumulate sales results
+    nextState.todayDeals.push(...sales.deals);
+    nextState.todaySoldVehicles.push(...sales.soldVehicles);
+    nextState.todayLeadsGenerated += sales.leadsGenerated;
+    nextState.todayAppointments += sales.appointments;
+    nextState.todayDealsWorked += sales.dealsWorked;
+    nextState.todayCashDelta += sales.cashDelta;
+    nextState.todayCsiDelta += sales.csiDelta;
+    nextState.todayMoraleDelta += sales.moraleDelta;
+
+    // Update cash immediately
+    nextState.cash = Math.round(nextState.cash + sales.cashDelta);
+
+    // Store recent deals and lead activity
+    nextState.recentDeals = [...sales.deals, ...nextState.recentDeals].slice(0, 20);
+    nextState.leadActivity = [...sales.leadActivity, ...nextState.leadActivity].slice(0, 50);
+
+    // Update pipeline (current hour's activity)
+    nextState.pipeline = {
+      leads: sales.leadsGenerated,
+      appointments: sales.appointments,
+      deals: sales.dealsWorked,
+    };
+
+    // Run hourly service (distribute daily service demand across 12 hours)
+    const soldCount = sales.deals.length;
+    const hourlyServiceDemand = Math.round(
+      (nextState.coefficients.service.baseDemand * 0.5 +
+        soldCount * 0.8 +
+        nextState.inventory.length * 0.05) / 12
+    );
+
+    const serviceResult = runServiceDepartment(
+      nextState.technicians,
+      nextState.serviceQueue,
+      hourlyServiceDemand,
+      this.rng,
+    );
+
+    nextState.completedROs = [...serviceResult.completed, ...nextState.completedROs].slice(0, 50);
+    nextState.serviceQueue = serviceResult.queue;
+    
+    // Accumulate service results
+    nextState.todayServiceHours += serviceResult.laborHours;
+    nextState.todayServiceParts += serviceResult.partsRevenue;
+    nextState.todayServiceROs += serviceResult.completed.length;
+    
+    const hourlyServiceGross = (serviceResult.partsRevenue + serviceResult.laborHours * 150) * 0.4;
+    nextState.cash = Math.round(nextState.cash + hourlyServiceGross);
+    nextState.todayCashDelta += hourlyServiceGross;
+    nextState.todayCsiDelta += serviceResult.csiDelta;
+
+    return nextState;
+  }
+
+  // Close out the day - processes all daily operations and advances to next day
+  closeOutDay(forceTick = false): GameState {
+    let state = this.repository.getState();
+    
+    // Only allow closeout if we're at end of day
+    if (state.hour < 21) {
+      return state;
+    }
+
+    state = this.runDailyOperations(state, forceTick);
+    this.repository.setState(state);
+    return state;
+  }
+
+  private runDailyOperations(state: GameState, forceTick = false): GameState {
+    const startingCash = state.cash; // Track cash at start of day
+    const startingInventory = state.inventory.filter(v => v.status === 'inStock').length;
+    
+    // Use accumulated daily results
+    const soldCount = (state.todayDeals || []).length;
+    const deals = state.todayDeals || [];
+    const soldVehicles = state.todaySoldVehicles || [];
+    const totalServiceHours = state.todayServiceHours || 0;
+    const totalServiceParts = state.todayServiceParts || 0;
+    const totalServiceROs = state.todayServiceROs || 0;
+    
+    const nextState: GameState = {
+      ...state,
+      hour: 9, // Reset to 9 AM
       day: state.day + 1,
       notifications: [],
+      // Clear daily accumulators
+      todayDeals: [],
+      todaySoldVehicles: [],
+      todayLeadsGenerated: 0,
+      todayAppointments: 0,
+      todayDealsWorked: 0,
+      todayCashDelta: 0,
+      todayCsiDelta: 0,
+      todayMoraleDelta: 0,
+      todayServiceHours: 0,
+      todayServiceParts: 0,
+      todayServiceROs: 0,
     };
 
     if (nextState.day > DAYS_PER_MONTH) {
@@ -111,126 +254,73 @@ export class SimulationEngine {
     nextState.economy = randomEvent.economy;
     nextState.notifications = [...nextState.notifications, ...randomEvent.notifications];
 
-    // age inventory
+    // age inventory (happens at end of day)
     const agedInventory = ageInventory(nextState.inventory, nextState.economy.demandIndex);
+    nextState.inventory = agedInventory;
 
-    // run sales
-    const sales = simulateSalesDay(
-      nextState.advisors,
-      agedInventory.filter((vehicle) => vehicle.status === 'inStock'),
-      nextState.marketing,
-      nextState.economy,
-      nextState.coefficients,
-      this.rng,
-    );
-
-    // update inventory statuses
-    const soldIds = new Set(sales.soldVehicles.map((vehicle) => vehicle.id));
-    nextState.inventory = agedInventory
-      .filter((vehicle) => !soldIds.has(vehicle.id))
-      .concat(sales.soldVehicles.map((vehicle) => ({ ...vehicle, status: 'sold' as const })));
-
-    // update advisors morale
+    // update advisors morale based on today's performance
+    const todayMoraleDelta = state.todayMoraleDelta || 0;
     nextState.advisors = nextState.advisors.map((advisor) => {
-      const moraleAdjustment = sales.moraleDelta / Math.max(nextState.advisors.length, 1);
+      const moraleAdjustment = todayMoraleDelta / Math.max(nextState.advisors.length, 1);
       const trainingBoost = advisor.trained.length * (state.coefficients.morale.trainingEffect / 100);
       const morale = clamp(advisor.morale + moraleAdjustment * 5 + trainingBoost, 20, 100);
       return { ...advisor, morale };
     });
 
-    const soldCount = sales.deals.length;
     const trailingSales = Math.max(1, soldCount);
 
-    // service demand derived from sold units and base demand
-    const serviceDemand = Math.round(
-      nextState.coefficients.service.baseDemand * 0.5 +
-        soldCount * 0.8 +
-        nextState.inventory.length * 0.05,
-    );
-
-    const serviceResult = runServiceDepartment(
-      nextState.technicians,
-      nextState.serviceQueue,
-      serviceDemand,
-      this.rng,
-    );
-
-    nextState.completedROs = [...serviceResult.completed, ...nextState.completedROs].slice(0, 50);
-    nextState.serviceQueue = serviceResult.queue;
-
-    const serviceRevenue = serviceResult.partsRevenue + serviceResult.laborHours * 150;
+    // Service already happened throughout the day, calculate totals
+    const serviceRevenue = totalServiceParts + totalServiceHours * 150;
     const serviceGross = serviceRevenue * 0.4;
 
     // update marketing lead multiplier
-    nextState.marketing.leadMultiplier = sales.leadsGenerated / Math.max(1, nextState.coefficients.lead.basePerDay);
+    const todayLeadsGenerated = state.todayLeadsGenerated || 0;
+    nextState.marketing.leadMultiplier = todayLeadsGenerated / Math.max(1, nextState.coefficients.lead.basePerDay);
 
-    // update pipeline
+    // Final pipeline state shows total day's activity
     const pipeline: PipelineState = {
-      leads: sales.leadsGenerated,
-      appointments: sales.appointments,
-      deals: sales.dealsWorked,
+      leads: todayLeadsGenerated,
+      appointments: state.todayAppointments || 0,
+      deals: state.todayDealsWorked || 0,
     };
     nextState.pipeline = pipeline;
 
-    // Calculate and deduct operating expenses and floor plan interest
+    // Calculate and deduct operating expenses, floor plan interest, and marketing spend (end of day)
     const operatingExpenses = calculateOperatingExpenses(nextState);
     const floorPlanInterest = calculateFloorPlanInterest(nextState);
-    const cashDelta = sales.cashDelta + serviceGross - operatingExpenses - floorPlanInterest;
-    nextState.cash = Math.round(nextState.cash + cashDelta);
+    const marketingSpend = nextState.marketing.spendPerDay;
+    nextState.cash = Math.round(nextState.cash - operatingExpenses - floorPlanInterest - marketingSpend);
     
     // Track revenue and sales for progression
-    const dailyRevenue = sales.deals.reduce((acc, deal) => acc + deal.soldPrice, 0) + serviceGross;
+    const dailyRevenue = deals.reduce((acc, deal) => acc + deal.soldPrice, 0) + serviceGross;
     nextState.totalRevenue += dailyRevenue;
-    nextState.lifetimeSales += sales.soldVehicles.length;
+    nextState.lifetimeSales += soldVehicles.length;
 
-    // auto restock if enabled
-    let autoAcquisitionNotice = '';
-    let acquiredCount = 0;
-    if (nextState.autoRestockEnabled) {
-      const restock = autoRestock(
-        nextState.inventory.filter((vehicle) => vehicle.status === 'inStock'),
-        nextState.cash,
-        nextState.coefficients,
-        this.rng,
-        trailingSales,
-        nextState.pricing,
-      );
-      if (restock.cashSpent > 0 && restock.newVehicles.length > 0) {
-        nextState.cash = Math.round(nextState.cash - restock.cashSpent);
-        nextState.inventory = nextState.inventory.concat(restock.newVehicles);
-        acquiredCount = restock.newVehicles.length;
-        autoAcquisitionNotice = `🚗 Auto-acquired ${acquiredCount} vehicles for $${Math.round(restock.cashSpent).toLocaleString()}`;
-      }
-    }
-
-    // update CSI and morale index
-    nextState.csi = clamp(nextState.csi + (sales.csiDelta + serviceResult.csiDelta) / 50, 10, 100);
+    // update CSI and morale index based on today's activity
+    const todayCsiDelta = state.todayCsiDelta || 0;
+    nextState.csi = clamp(nextState.csi + todayCsiDelta / 50, 10, 100);
     nextState.moraleIndex = clamp(
       nextState.advisors.reduce((acc, advisor) => acc + advisor.morale, 0) / Math.max(nextState.advisors.length, 1),
       0,
       100,
     );
 
-    // store deals
-    nextState.recentDeals = [...sales.deals, ...nextState.recentDeals].slice(0, 20);
-    
-    // store lead activity (keep last 50 activities)
-    nextState.leadActivity = [...sales.leadActivity, ...nextState.leadActivity].slice(0, 50);
+    // Deals and lead activity were already added throughout the day
 
     // reporting
     const gameDate = `${nextState.year}-${String(nextState.month).padStart(2, '0')}-${String(nextState.day).padStart(2, '0')}`;
     const dailyReport: DailyReport = {
       date: gameDate,
       salesUnits: soldCount,
-      frontGross: sales.deals.reduce((acc, deal) => acc + deal.frontGross, 0),
-      backGross: sales.deals.reduce((acc, deal) => acc + deal.backGross, 0),
-      totalGross: sales.deals.reduce((acc, deal) => acc + deal.totalGross, 0) + serviceGross,
+      frontGross: deals.reduce((acc, deal) => acc + deal.frontGross, 0),
+      backGross: deals.reduce((acc, deal) => acc + deal.backGross, 0),
+      totalGross: deals.reduce((acc, deal) => acc + deal.totalGross, 0) + serviceGross,
       closingRate: pipeline.deals > 0 ? soldCount / pipeline.deals : 0,
-      serviceLaborHours: serviceResult.laborHours,
-      servicePartsRevenue: serviceResult.partsRevenue,
-      serviceComebackRate: serviceResult.comebackRate,
+      serviceLaborHours: totalServiceHours,
+      servicePartsRevenue: totalServiceParts,
+      serviceComebackRate: 0, // Can't easily calculate this from accumulated data
       cash: nextState.cash,
-      marketingSpend: nextState.marketing.spendPerDay,
+      marketingSpend: marketingSpend,
       operatingExpenses: operatingExpenses,
       floorPlanInterest: floorPlanInterest,
       moraleIndex: nextState.moraleIndex,
@@ -295,15 +385,15 @@ export class SimulationEngine {
     const dailySummary = this.createDailySummary(
       nextState,
       soldCount,
-      sales,
-      serviceResult,
+      deals,
+      totalServiceHours,
+      totalServiceParts,
+      totalServiceROs,
       serviceGross,
       operatingExpenses,
       floorPlanInterest,
-      autoAcquisitionNotice,
       startingCash,
-      startingInventory,
-      acquiredCount
+      startingInventory
     );
     nextState.notifications.push(dailySummary);
 
@@ -313,27 +403,25 @@ export class SimulationEngine {
   private createDailySummary(
     state: GameState,
     soldCount: number,
-    sales: any,
-    serviceResult: any,
+    deals: any[],
+    serviceHours: number,
+    serviceParts: number,
+    serviceROs: number,
     serviceGross: number,
     opEx: number,
     floorInterest: number,
-    autoAcquisition: string,
     startingCash: number,
-    startingInventory: number,
-    acquiredCount: number
+    startingInventory: number
   ): string {
-    const frontGross = sales.deals.reduce((acc: number, deal: any) => acc + deal.frontGross, 0);
-    const backGross = sales.deals.reduce((acc: number, deal: any) => acc + deal.backGross, 0);
+    const frontGross = deals.reduce((acc: number, deal: any) => acc + deal.frontGross, 0);
+    const backGross = deals.reduce((acc: number, deal: any) => acc + deal.backGross, 0);
     const totalGross = frontGross + backGross + serviceGross;
-    const salesCash = sales.cashDelta;
+    const salesCash = deals.reduce((acc: number, deal: any) => acc + deal.soldPrice, 0);
+    const marketingSpend = state.marketing.spendPerDay;
     const totalRevenue = salesCash + serviceGross;
-    const totalExpenses = opEx + floorInterest;
+    const totalExpenses = opEx + floorInterest + marketingSpend;
     
-    // Calculate auto acquisition cost from the ending cash
-    const autoAcquisitionCost = startingCash + totalRevenue - totalExpenses - state.cash;
-    
-    const netCash = totalRevenue - totalExpenses - autoAcquisitionCost;
+    const netCash = totalRevenue - totalExpenses;
     const netSign = netCash >= 0 ? '+' : '';
     const endingInventory = state.inventory.filter(v => v.status === 'inStock').length;
     const inventoryChange = endingInventory - startingInventory;
@@ -356,10 +444,10 @@ export class SimulationEngine {
     
     // Service Performance
     summary += `━━━ 🔧 SERVICE ━━━\n`;
-    summary += `Labor Hours: ${serviceResult.laborHours.toFixed(1)} hrs\n`;
-    summary += `Parts Revenue: $${Math.round(serviceResult.partsRevenue).toLocaleString()}\n`;
+    summary += `Labor Hours: ${serviceHours.toFixed(1)} hrs\n`;
+    summary += `Parts Revenue: $${Math.round(serviceParts).toLocaleString()}\n`;
     summary += `Service Gross: $${Math.round(serviceGross).toLocaleString()}\n`;
-    summary += `ROs Completed: ${serviceResult.completedCount}\n\n`;
+    summary += `ROs Completed: ${serviceROs}\n\n`;
     
     // Cash Flow
     summary += `━━━ 💵 CASH FLOW ━━━\n`;
@@ -368,18 +456,14 @@ export class SimulationEngine {
     summary += `Expenses: -$${Math.round(totalExpenses).toLocaleString()}\n`;
     summary += `  • OpEx: $${Math.round(opEx).toLocaleString()}\n`;
     summary += `  • Floor Interest: $${Math.round(floorInterest).toLocaleString()}\n`;
-    
-    if (autoAcquisitionCost > 0) {
-      summary += `Auto Restock: -$${Math.round(autoAcquisitionCost).toLocaleString()} (${acquiredCount} units)\n`;
-    }
-    
+    summary += `  • Marketing: $${Math.round(marketingSpend).toLocaleString()}\n`;
     summary += `Net Change: ${netSign}$${Math.round(netCash).toLocaleString()}\n`;
     summary += `Ending Cash: $${Math.round(state.cash).toLocaleString()}\n\n`;
     
     // Inventory
     summary += `━━━ 📦 INVENTORY ━━━\n`;
     summary += `Starting: ${startingInventory} units\n`;
-    summary += `Acquired: +${acquiredCount} | Sold: -${soldCount}\n`;
+    summary += `Sold: -${soldCount}\n`;
     summary += `Ending: ${endingInventory} units (${inventorySign}${inventoryChange})`;
     
     return summary;

@@ -252,9 +252,22 @@ export interface GameState {
   day: number;
   month: number;
   year: number;
+  hour: number; // Current hour (9-21 for 9 AM to 9 PM)
   speed: 1 | 5 | 30;
   paused: boolean;
   cash: number;
+  // Daily accumulation (resets each day)
+  todayDeals?: Deal[];
+  todaySoldVehicles?: Vehicle[];
+  todayLeadsGenerated?: number;
+  todayAppointments?: number;
+  todayDealsWorked?: number;
+  todayCashDelta?: number;
+  todayCsiDelta?: number;
+  todayMoraleDelta?: number;
+  todayServiceHours?: number;
+  todayServiceParts?: number;
+  todayServiceROs?: number;
   inventory: Vehicle[];
   advisors: SalesAdvisor[];
   technicians: Technician[];
@@ -279,7 +292,6 @@ export interface GameState {
   unlockedFeatures: string[];
   leadActivity: LeadActivity[];
   salesGoal: number; // Annual sales goal (SPG)
-  autoRestockEnabled: boolean; // Toggle for automatic inventory restocking
 }
 
 export interface HealthCheckResult {

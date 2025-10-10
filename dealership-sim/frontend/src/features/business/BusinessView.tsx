@@ -76,9 +76,9 @@ const BusinessView = ({ state }: Props) => {
             <div className="p-3 rounded-lg bg-blue-950/30 border border-blue-500/30">
               <p className="text-sm text-blue-300">✨ Benefits:</p>
               <ul className="mt-2 space-y-1 text-xs text-slate-300 list-disc list-inside">
-                <li>Enable auto-advance with speed controls (1x, 5x, Fast)</li>
-                <li>No more manual clicking to advance each day</li>
-                <li>Let your dealership run while you focus on strategy</li>
+                <li>Boost productivity and unlock management features</li>
+                <li>Higher closing rates and better gross profit</li>
+                <li>Professional leadership for your team</li>
               </ul>
             </div>
             

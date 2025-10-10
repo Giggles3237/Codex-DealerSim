@@ -187,25 +187,3 @@ export const estimateDaysSupply = (inventory: Vehicle[], trailingSales: number):
   return (inventory.length / trailingSales) * 30;
 };
 
-export const autoRestock = (
-  inventory: Vehicle[],
-  cash: number,
-  coefficients: Coefficients,
-  rng: RNG,
-  trailingSales: number,
-  pricingState?: PricingState,
-): { newVehicles: Vehicle[]; cashSpent: number } => {
-  const daysSupply = estimateDaysSupply(inventory, Math.max(1, trailingSales));
-  if (daysSupply >= coefficients.inventory.minDaysSupply) {
-    return { newVehicles: [], cashSpent: 0 };
-  }
-  const units = coefficients.inventory.bulkBuyUnits;
-  const pack = acquirePack('neutral', units, rng, coefficients, pricingState);
-  const costPerUnit = pack.cost / units;
-  const affordableUnits = Math.min(units, Math.floor(cash / costPerUnit));
-  if (affordableUnits <= 0) {
-    return { newVehicles: [], cashSpent: 0 };
-  }
-  const selected = acquirePack('neutral', affordableUnits, rng, coefficients, pricingState);
-  return { newVehicles: selected.vehicles, cashSpent: selected.cost };
-};

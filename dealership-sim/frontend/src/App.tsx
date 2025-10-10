@@ -92,13 +92,20 @@ const App = () => {
               <h1 className="text-2xl font-bold tracking-tight">Dealership Simulator</h1>
               <p className="text-lg font-semibold text-blue-400">
                 {new Date(gameState.year, gameState.month - 1).toLocaleDateString(undefined, { month: 'long' })} {gameState.day}, {gameState.year}
+                <span className="ml-3 text-cyan-400">
+                  {gameState.hour === 12 ? '12:00 PM' : gameState.hour > 12 ? `${gameState.hour - 12}:00 PM` : gameState.hour === 0 ? '12:00 AM' : `${gameState.hour}:00 AM`}
+                </span>
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="outline" onClick={() => tick(1)}>
-                Advance 1 Day
+              <Button 
+                variant={gameState.hour === 21 && gameState.paused ? "default" : "outline"}
+                onClick={() => tick(1)}
+                className={gameState.hour === 21 && gameState.paused ? 'bg-blue-600 hover:bg-blue-700 animate-pulse' : ''}
+              >
+                {gameState.hour === 21 && gameState.paused ? '✓ Close Out Day' : 'Close Out Day'}
               </Button>
-              {gameState.salesManager ? (
+              {true ? (
                 <>
                   <Button 
                     variant="outline" 
@@ -106,7 +113,7 @@ const App = () => {
                     className={gameState.speed === 1 ? 'border-primary text-primary' : ''}
                     disabled={!gameState.salesManager}
                   >
-                    1x (2s/day)
+                    1x (2s/hr)
                   </Button>
                   <Button 
                     variant="outline" 
@@ -114,7 +121,7 @@ const App = () => {
                     className={gameState.speed === 5 ? 'border-primary text-primary' : ''}
                     disabled={!gameState.salesManager}
                   >
-                    5x (1s/day)
+                    5x (0.4s/hr)
                   </Button>
                   <Button 
                     variant="outline" 
@@ -122,13 +129,13 @@ const App = () => {
                     className={gameState.speed === 30 ? 'border-primary text-primary' : ''}
                     disabled={!gameState.salesManager}
                   >
-                    Fast (0.5s/day)
+                    Fast (0.067s/hr)
                   </Button>
                   <Button 
                     variant={isPaused ? "outline" : "default"} 
                     onClick={() => setPaused(!isPaused)}
                     className={!isPaused ? 'bg-green-600 hover:bg-green-700' : ''}
-                    disabled={!gameState.salesManager}
+                    disabled={gameState.hour === 21}
                   >
                     {isPaused ? (
                       <span className="flex items-center gap-2"><Play className="h-4 w-4" /> Resume</span>
@@ -137,11 +144,7 @@ const App = () => {
                     )}
                   </Button>
                 </>
-              ) : (
-                <span className="text-sm text-amber-400 border border-amber-500/30 bg-amber-500/10 px-3 py-2 rounded">
-                  ⚠️ Hire Sales Manager to enable auto-advance
-                </span>
-              )}
+              ) : null}
             </div>
           </div>
           {health?.starving && (

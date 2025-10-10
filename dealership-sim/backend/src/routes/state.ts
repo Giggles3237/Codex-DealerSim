@@ -8,9 +8,9 @@ router.get('/state', (req: EngineRequest, res) => {
 });
 
 router.post('/tick', (req: EngineRequest, res) => {
-  const days = typeof req.body?.days === 'number' ? req.body.days : 1;
-  // Force tick to allow manual advancement even when paused
-  const state = req.engine.tick(Math.max(1, Math.min(30, days)), true);
+  // Close out the day - processes daily operations and advances to next day
+  const state = req.engine.closeOutDay(true);
+  req.schedule();
   res.json(state);
 });
 

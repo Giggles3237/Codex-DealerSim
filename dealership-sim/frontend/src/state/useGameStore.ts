@@ -27,7 +27,6 @@ interface GameStore {
   upgradeBusiness: () => Promise<void>;
   setSalesGoal: (goal: number) => Promise<void>;
   hireManager: () => Promise<void>;
-  setAutoRestock: (enabled: boolean) => Promise<void>;
   clearError: () => void;
   dismissToast: (id: string) => void;
 }
@@ -107,8 +106,16 @@ export const useGameStore = create<GameStore>()(
     },
     async applyPreset(id) {
       const preset = CONFIG_PRESETS.find((item) => item.id === id);
-      if (!preset) return;
-      await get().updateCoefficients(preset.coefficients);
+      if (!preset) {
+        set({ error: `Preset "${id}" not found` });
+        return;
+      }
+      try {
+        await get().updateCoefficients(preset.coefficients);
+        get().pushNotifications([`Applied "${preset.name}" preset: ${preset.description}`]);
+      } catch (error: any) {
+        set({ error: `Failed to apply preset: ${error.message}` });
+      }
     },
     async setPricingPolicy(globalPolicy, segment, policy) {
       try {
@@ -182,14 +189,6 @@ export const useGameStore = create<GameStore>()(
         get().pushNotifications(['Sales Manager hired! You can now use auto-advance.']);
       } catch (error: any) {
         set({ error: error.message || 'Failed to hire Sales Manager' });
-      }
-    },
-    async setAutoRestock(enabled: boolean) {
-      try {
-        const state = await safePost<GameState>('/api/config/auto-restock', { enabled });
-        set({ gameState: state });
-      } catch (error: any) {
-        set({ error: error.message || 'Failed to update auto-restock' });
       }
     },
     clearError() {

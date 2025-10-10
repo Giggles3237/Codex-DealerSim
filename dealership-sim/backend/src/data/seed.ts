@@ -150,9 +150,22 @@ export const createSeedState = (seed = 42, coefficients: Coefficients = DEFAULT_
     day: START_DAY,
     month: START_MONTH,
     year: START_YEAR,
+    hour: 9, // Start at 9 AM
     speed: 1,
-    paused: true, // Start paused since no sales manager
+    paused: false, // Start unpaused so hours auto-advance
     cash: STARTING_CASH,
+    // Initialize daily accumulators
+    todayDeals: [],
+    todaySoldVehicles: [],
+    todayLeadsGenerated: 0,
+    todayAppointments: 0,
+    todayDealsWorked: 0,
+    todayCashDelta: 0,
+    todayCsiDelta: 0,
+    todayMoraleDelta: 0,
+    todayServiceHours: 0,
+    todayServiceParts: 0,
+    todayServiceROs: 0,
     inventory,
     advisors,
     technicians,
@@ -183,7 +196,6 @@ export const createSeedState = (seed = 42, coefficients: Coefficients = DEFAULT_
     unlockedFeatures: ['basic_operations'],
     leadActivity: [],
     salesGoal: 120, // Start with a modest goal of 120 cars per year (10/month)
-    autoRestockEnabled: false, // Default to manual inventory management
   };
   return state;
 };

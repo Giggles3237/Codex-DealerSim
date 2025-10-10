@@ -12,7 +12,7 @@ interface Props {
 }
 
 const ControlPanel = ({ state, health }: Props) => {
-  const { updateCoefficients, applyPreset, updateMarketing, resetGame, setSalesGoal, setAutoRestock } = useGameStore();
+  const { updateCoefficients, applyPreset, updateMarketing, resetGame, setSalesGoal } = useGameStore();
   const [salesGoalInput, setSalesGoalInput] = useState(state.salesGoal?.toString() || '120');
 
   const handleChange = (group: keyof GameState['coefficients'], key: string) => (event: ChangeEvent<HTMLInputElement>) => {
@@ -47,11 +47,23 @@ const ControlPanel = ({ state, health }: Props) => {
           <CardDescription>Select a balancing preset to quickly tune the store.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-2">
-          {CONFIG_PRESETS.map((preset) => (
-            <Button key={preset.id} variant="outline" onClick={() => applyPreset(preset.id)}>
-              {preset.name}
-            </Button>
-          ))}
+          {CONFIG_PRESETS.map((preset) => {
+            // Check if this preset matches current settings (simple check)
+            const isActive = preset.id === 'hard' && 
+              state.coefficients.lead.basePerDay <= 22 && 
+              state.coefficients.sales.baseClose <= 0.035;
+            
+            return (
+              <Button 
+                key={preset.id} 
+                variant={isActive ? "default" : "outline"} 
+                onClick={() => applyPreset(preset.id)}
+                className={isActive ? 'bg-blue-600 hover:bg-blue-700' : ''}
+              >
+                {preset.name}
+              </Button>
+            );
+          })}
         </CardContent>
       </Card>
 
@@ -64,27 +76,6 @@ const ControlPanel = ({ state, health }: Props) => {
           <Button variant="destructive" onClick={handleReset}>
             Start Over
           </Button>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Auto Restock</CardTitle>
-          <CardDescription>Automatically purchase inventory when stock is low</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium">Enable Auto Restock</p>
-              <p className="text-xs text-slate-400">Automatically buy inventory when days supply is low</p>
-            </div>
-            <Button
-              onClick={() => setAutoRestock(!state.autoRestockEnabled)}
-              variant={state.autoRestockEnabled ? "default" : "outline"}
-            >
-              {state.autoRestockEnabled ? 'Enabled' : 'Disabled'}
-            </Button>
-          </div>
         </CardContent>
       </Card>
 
