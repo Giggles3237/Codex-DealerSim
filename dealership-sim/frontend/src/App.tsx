@@ -11,6 +11,7 @@ import SalesView from './features/sales/SalesView';
 import ServiceView from './features/service/ServiceView';
 import ReportsView from './features/reports/ReportsView';
 import BusinessView from './features/business/BusinessView';
+import UpgradeShop from './features/upgrades/UpgradeShop';
 
 const App = () => {
   const {
@@ -147,11 +148,6 @@ const App = () => {
               ) : null}
             </div>
           </div>
-          {health?.starving && (
-            <div className="border-t border-amber-500/30 bg-amber-500/10 py-2 text-center text-sm text-amber-200">
-              <AlertTriangle className="mr-2 inline h-4 w-4" /> {health.message}
-            </div>
-          )}
         </header>
 
         <main className="mx-auto max-w-7xl px-6 py-8">
@@ -167,15 +163,29 @@ const App = () => {
           <Tabs defaultValue="dashboard" className="mt-8">
             <TabsList>
               <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+              <TabsTrigger value="upgrades">
+                💎 Upgrades
+                {gameState.availableUpgrades?.filter(u => !u.purchased && u.unlocked).length > 0 && (
+                  <span className="ml-2 bg-green-500 text-white text-xs rounded-full px-2 py-0.5">
+                    {gameState.availableUpgrades.filter(u => !u.purchased && u.unlocked).length}
+                  </span>
+                )}
+              </TabsTrigger>
               <TabsTrigger value="business">Business</TabsTrigger>
               <TabsTrigger value="control">Control Panel</TabsTrigger>
               <TabsTrigger value="inventory">Inventory</TabsTrigger>
               <TabsTrigger value="sales">Sales</TabsTrigger>
-              <TabsTrigger value="service">Service</TabsTrigger>
+              {/* Only show Service tab if service department is unlocked */}
+              {(gameState.purchasedUpgrades?.includes('service_department') || gameState.technicians.length > 0) && (
+                <TabsTrigger value="service">Service</TabsTrigger>
+              )}
               <TabsTrigger value="reports">Reports</TabsTrigger>
             </TabsList>
             <TabsContent value="dashboard">
               <Dashboard state={gameState} />
+            </TabsContent>
+            <TabsContent value="upgrades">
+              <UpgradeShop state={gameState} />
             </TabsContent>
             <TabsContent value="business">
               <BusinessView state={gameState} />

@@ -29,6 +29,18 @@ const Dashboard = ({ state }: Props) => {
   const latestReport = state.dailyHistory[state.dailyHistory.length - 1];
   const currentDate = `${state.year}-${String(state.month).padStart(2, '0')}-${String(state.day).padStart(2, '0')}`;
   
+  // Real-time today's performance (running totals during the day)
+  const todayDeals = state.todayDeals || [];
+  const todayUnits = todayDeals.length;
+  const todayFrontGross = todayDeals.reduce((sum, deal) => sum + deal.frontGross, 0);
+  const todayBackGross = todayDeals.reduce((sum, deal) => sum + deal.backGross, 0);
+  const todayServiceHours = state.todayServiceHours || 0;
+  const todayServiceParts = state.todayServiceParts || 0;
+  const todayServiceGross = (todayServiceParts + todayServiceHours * 150) * 0.4;
+  const todayTotalGross = todayFrontGross + todayBackGross + todayServiceGross;
+  const todayDealsWorked = state.todayDealsWorked || 0;
+  const todayClosingRate = todayDealsWorked > 0 ? todayUnits / todayDealsWorked : 0;
+  
   // Calculate MTD and projections
   const currentMonthKey = `${state.year}-${String(state.month).padStart(2, '0')}`;
   const mtdReports = state.dailyHistory.filter(report => report.date.startsWith(currentMonthKey));
@@ -101,25 +113,25 @@ const Dashboard = ({ state }: Props) => {
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             <span>Today&apos;s Performance</span>
-            <span className="text-blue-400 font-mono">{currentDate}</span>
+            <span className="text-blue-400 font-mono">{currentDate} • Hour {state.hour}</span>
           </CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-4 gap-4 text-center">
           <div className="rounded-lg border border-slate-700 bg-slate-900/70 p-4">
             <p className="text-xs text-slate-400">Units Sold Today</p>
-            <p className="mt-2 text-3xl font-bold text-green-400">{latestReport?.salesUnits ?? 0}</p>
+            <p className="mt-2 text-3xl font-bold text-green-400">{todayUnits}</p>
           </div>
           <div className="rounded-lg border border-slate-700 bg-slate-900/70 p-4">
             <p className="text-xs text-slate-400">Total Gross Today</p>
-            <p className="mt-2 text-2xl font-bold text-green-400">${Math.round(latestReport?.totalGross ?? 0).toLocaleString()}</p>
+            <p className="mt-2 text-2xl font-bold text-green-400">${Math.round(todayTotalGross).toLocaleString()}</p>
           </div>
           <div className="rounded-lg border border-slate-700 bg-slate-900/70 p-4">
             <p className="text-xs text-slate-400">Closing Rate</p>
-            <p className="mt-2 text-3xl font-bold text-blue-400">{((latestReport?.closingRate ?? 0) * 100).toFixed(0)}%</p>
+            <p className="mt-2 text-3xl font-bold text-blue-400">{(todayClosingRate * 100).toFixed(0)}%</p>
           </div>
           <div className="rounded-lg border border-slate-700 bg-slate-900/70 p-4">
             <p className="text-xs text-slate-400">Service Hours</p>
-            <p className="mt-2 text-3xl font-bold text-cyan-400">{Math.round(latestReport?.serviceLaborHours ?? 0)}</p>
+            <p className="mt-2 text-3xl font-bold text-cyan-400">{Math.round(todayServiceHours)}</p>
           </div>
         </CardContent>
       </Card>

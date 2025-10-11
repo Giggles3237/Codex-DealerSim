@@ -149,13 +149,15 @@ export const acquirePack = (
   rng: RNG,
   coefficients: Coefficients,
   pricingState?: PricingState,
+  avgCostPerUnit?: number,
 ): AcquirePackResult => {
   const vehicles: Vehicle[] = [];
   let totalCost = 0;
+  const baseAvgCost = avgCostPerUnit ?? 30000; // Default to 30k if not provided
   for (let i = 0; i < qty; i += 1) {
     const baseCostMultiplier =
       type === 'desirable' ? 1.12 : type === 'neutral' ? 1 : type === 'undesirable' ? 0.88 : 1;
-    const baseCost = Math.round(28000 * baseCostMultiplier * (0.9 + rng.nextFloat() * 0.3) / 100) * 100;
+    const baseCost = Math.round(baseAvgCost * baseCostMultiplier * (0.9 + rng.nextFloat() * 0.3) / 100) * 100;
     const segmentPool: Vehicle['segment'][] = type === 'desirable' ? ['suv', 'ev', 'crossover'] : type === 'undesirable' ? ['sedan', 'compact'] : ['sedan', 'crossover', 'suv'];
     const condition: Vehicle['condition'] = type === 'desirable' ? 'bev' : type === 'undesirable' ? 'used' : 'cpo';
     const vehicle = createVehicle(

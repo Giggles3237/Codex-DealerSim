@@ -4,6 +4,7 @@ import { EngineRequest } from './types';
 import { acquirePack, applyPricingPolicy } from '../core/services/inventory';
 import { RNG } from '../utils/random';
 import { Vehicle, PricingPolicy } from '@dealership/shared';
+import { validateInventoryPurchase, getMaxInventorySlots } from '../core/progression/featureFlags';
 
 const router = Router();
 
@@ -34,14 +35,37 @@ router.post('/inventory/acquire', (req: EngineRequest, res) => {
     return res.status(400).json({ error: parsed.error.flatten() });
   }
   const state = req.engine.getState();
+  
+  // Auction closes at 4 PM - can't buy inventory after that
+  if (state.hour >= 16) {
+    return res.status(400).json({ error: 'Auction closed at 4 PM. Try again tomorrow.' });
+  }
+  
+  // Validate against progression limits
+  const validation = validateInventoryPurchase(state, parsed.data.qty);
+  if (!validation.valid) {
+    return res.status(400).json({ error: validation.error });
+  }
+  
+  // Calculate avg cost per unit based on lot size (smaller lot = cheaper vehicles)
+  const maxInventorySlots = getMaxInventorySlots(state);
+  const avgCostPerUnit = Math.round((15000 + (maxInventorySlots * 150)) / 100) * 100;
+  
   const rng = new RNG();
-  const acquisition = acquirePack(parsed.data.pack, parsed.data.qty, rng, state.coefficients, state.pricing);
+  const acquisition = acquirePack(parsed.data.pack, parsed.data.qty, rng, state.coefficients, state.pricing, avgCostPerUnit);
   if (acquisition.cost > state.cash) {
     return res.status(400).json({ error: 'Not enough cash to acquire vehicles' });
   }
+  
+  // Inventory arrives at noon next business day (status: pending)
+  const vehiclesWithPendingStatus = acquisition.vehicles.map(vehicle => ({
+    ...vehicle,
+    status: 'pending' as const
+  }));
+  
   state.cash = Math.round(state.cash - acquisition.cost);
-  state.inventory = [...state.inventory, ...acquisition.vehicles];
-  state.notifications.push(`Acquired ${acquisition.vehicles.length} ${parsed.data.pack} vehicles.`);
+  state.inventory = [...state.inventory, ...vehiclesWithPendingStatus];
+  state.notifications.push(`Purchased ${acquisition.vehicles.length} ${parsed.data.pack} vehicles at auction. They'll arrive tomorrow at noon.`);
   req.repository.setState(state);
   res.json(state);
 });

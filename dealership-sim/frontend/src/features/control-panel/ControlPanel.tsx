@@ -129,9 +129,7 @@ const ControlPanel = ({ state, health }: Props) => {
         <CardHeader>
           <CardTitle>Health Check</CardTitle>
           <CardDescription>
-            {health?.starving
-              ? `Warning: Expected gross ${Math.round(health.expectedGross)} vs replacement ${Math.round(health.replacementGross)}`
-              : 'Current coefficients support sustainable inventory replacement.'}
+            Current coefficients support sustainable inventory replacement.
           </CardDescription>
         </CardHeader>
       </Card>

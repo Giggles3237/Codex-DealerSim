@@ -5,8 +5,8 @@ import { ageInventory } from '../services/inventory';
 import { simulateSalesHour } from '../services/sales';
 import { runServiceDepartment } from '../services/service';
 import { applyRandomEvents } from '../events/randomEvents';
-import { healthCheck } from '../balance/coefficients';
 import { clamp } from '../../utils/math';
+import { runProgressionCheck } from '../progression/unlockManager';
 
 const DAYS_PER_MONTH = 30;
 
@@ -98,6 +98,21 @@ export class SimulationEngine {
       todayServiceParts: state.todayServiceParts || 0,
       todayServiceROs: state.todayServiceROs || 0,
     };
+
+    // Deliver pending inventory at noon (hour 12)
+    if (nextState.hour === 12) {
+      nextState.inventory = nextState.inventory.map(vehicle => {
+        if (vehicle.status === 'pending') {
+          return { ...vehicle, status: 'inStock' as const };
+        }
+        return vehicle;
+      });
+      
+      const pendingDelivered = nextState.inventory.filter(v => v.status === 'inStock' && v.ageDays === 0).length;
+      if (pendingDelivered > 0) {
+        nextState.notifications.push(`${pendingDelivered} vehicles arrived from auction.`);
+      }
+    }
 
     // If we've reached end of business day (9 PM = hour 21), pause and wait for player to close out
     const endOfDay = nextState.hour > 21;
@@ -209,7 +224,7 @@ export class SimulationEngine {
     const totalServiceParts = state.todayServiceParts || 0;
     const totalServiceROs = state.todayServiceROs || 0;
     
-    const nextState: GameState = {
+    let nextState: GameState = {
       ...state,
       hour: 9, // Reset to 9 AM
       day: state.day + 1,
@@ -376,10 +391,12 @@ export class SimulationEngine {
       nextState.monthlyReports = [monthly, ...nextState.monthlyReports.filter((report) => report.month !== monthKey)];
     }
 
-    const guardrail = healthCheck(nextState.inventory, nextState.coefficients);
-    if (guardrail.starving) {
-      nextState.notifications.push(guardrail.message);
-    }
+    // Removed guardrail notification - no longer needed
+    
+    // Check for progression unlocks and achievements
+    const progressionResult = runProgressionCheck(nextState);
+    nextState = progressionResult.state;
+    nextState.notifications.push(...progressionResult.notifications);
 
     // Create daily summary notification
     const dailySummary = this.createDailySummary(
@@ -396,6 +413,9 @@ export class SimulationEngine {
       startingInventory
     );
     nextState.notifications.push(dailySummary);
+
+    // Auto-resume after closeout - user must manually pause
+    nextState.paused = false;
 
     return nextState;
   }

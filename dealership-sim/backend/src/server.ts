@@ -12,6 +12,7 @@ import inventoryRoutes from './routes/inventory';
 import marketingRoutes from './routes/marketing';
 import reportsRoutes from './routes/reports';
 import businessRoutes from './routes/business';
+import upgradesRoutes from './routes/upgrades';
 
 interface StartOptions {
   port: number;
@@ -71,6 +72,7 @@ export const startServer = async ({ port, seedMode }: StartOptions) => {
   app.use('/api', marketingRoutes);
   app.use('/api', reportsRoutes);
   app.use('/api', businessRoutes);
+  app.use('/api', upgradesRoutes);
 
   app.post('/api/save', async (req, res) => {
     const state = engine.getState();

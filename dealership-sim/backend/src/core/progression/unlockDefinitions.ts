@@ -1,0 +1,330 @@
+import { Upgrade, Achievement, UpgradeEffect } from '@dealership/shared';
+
+/**
+ * All available upgrades in the game, defining progression path
+ * These are checked and unlocked based on player progress
+ */
+export const UPGRADE_DEFINITIONS: Omit<Upgrade, 'unlocked' | 'purchased'>[] = [
+  // PHASE 1: Early game (first 30 minutes)
+  {
+    id: 'second_advisor',
+    name: 'Hire 2nd Sales Advisor',
+    description: 'Double your sales capacity. Hire another advisor to work more deals.',
+    cost: 5000,
+    category: 'staff',
+    requirements: { revenue: 15000 },
+    effects: { maxAdvisors: 2 },
+  },
+  {
+    id: 'marketing_boost',
+    name: 'Marketing Budget Increase',
+    description: 'Unlock ability to spend more on marketing and generate more leads.',
+    cost: 3000,
+    category: 'efficiency',
+    requirements: { revenue: 10000 },
+    effects: { additionalFeatures: ['increased_marketing'] },
+  },
+  {
+    id: 'bulk_inventory',
+    name: 'Bulk Inventory Purchase',
+    description: 'Buy 5+ vehicles at once to restock faster.',
+    cost: 2000,
+    category: 'capacity',
+    requirements: { revenue: 12000, lifetimeSales: 5 },
+    effects: { additionalFeatures: ['bulk_buying'] },
+  },
+  {
+    id: 'third_advisor',
+    name: 'Hire 3rd Sales Advisor',
+    description: 'Expand your sales team to handle more customer traffic.',
+    cost: 8000,
+    category: 'staff',
+    requirements: { revenue: 30000, upgrades: ['second_advisor'] },
+    effects: { maxAdvisors: 3 },
+  },
+  {
+    id: 'inventory_expansion_1',
+    name: 'Lot Expansion (30 slots)',
+    description: 'Expand your lot to hold up to 30 vehicles.',
+    cost: 10000,
+    category: 'capacity',
+    requirements: { revenue: 25000, lifetimeSales: 15 },
+    effects: { maxInventorySlots: 30 },
+  },
+
+  // PHASE 2: Service & Mid-game (30-90 minutes)
+  {
+    id: 'sales_manager',
+    name: 'Hire Sales Manager',
+    description: 'Hire a Sales Manager to enable auto-advance features and boost team performance.',
+    cost: 15000,
+    category: 'staff',
+    requirements: { lifetimeSales: 50, revenue: 40000 },
+    effects: { enableAutoAdvance: true },
+  },
+  {
+    id: 'service_department',
+    name: 'Build Service Department',
+    description: 'Major expansion! Add service bays and hire technicians. New revenue stream from repairs.',
+    cost: 20000,
+    category: 'facilities',
+    requirements: { revenue: 50000, lifetimeSales: 25 },
+    effects: { unlockService: true, maxTechnicians: 2 },
+  },
+  {
+    id: 'fourth_advisor',
+    name: 'Hire 4th Sales Advisor',
+    description: 'Continue growing your sales team.',
+    cost: 12000,
+    category: 'staff',
+    requirements: { revenue: 75000, upgrades: ['third_advisor'] },
+    effects: { maxAdvisors: 4 },
+  },
+  {
+    id: 'additional_techs_1',
+    name: 'Hire More Technicians (4 total)',
+    description: 'Expand service capacity by hiring 2 more technicians.',
+    cost: 15000,
+    category: 'staff',
+    requirements: { revenue: 80000, upgrades: ['service_department'] },
+    effects: { maxTechnicians: 4 },
+  },
+  {
+    id: 'used_car_manager',
+    name: 'Hire Used Car Manager',
+    description: 'Hire a Used Car Manager to unlock advanced pricing strategies and inventory management.',
+    cost: 18000,
+    category: 'staff',
+    requirements: { revenue: 75000, lifetimeSales: 40 },
+    effects: { additionalFeatures: ['advanced_pricing'] },
+  },
+  {
+    id: 'premium_inventory',
+    name: 'Premium Inventory Access',
+    description: 'Gain access to luxury and performance vehicles with higher margins.',
+    cost: 25000,
+    category: 'capacity',
+    requirements: { revenue: 100000, csi: 80 },
+    effects: { additionalFeatures: ['premium_vehicles'] },
+  },
+  {
+    id: 'fifth_advisor',
+    name: 'Hire 5th Sales Advisor',
+    description: 'Expand to a full sales team.',
+    cost: 15000,
+    category: 'staff',
+    requirements: { revenue: 120000, upgrades: ['fourth_advisor'] },
+    effects: { maxAdvisors: 5 },
+  },
+  {
+    id: 'inventory_expansion_2',
+    name: 'Major Lot Expansion (60 slots)',
+    description: 'Significantly expand your lot to hold up to 60 vehicles.',
+    cost: 30000,
+    category: 'capacity',
+    requirements: { revenue: 150000, lifetimeSales: 75, upgrades: ['inventory_expansion_1'] },
+    effects: { maxInventorySlots: 60 },
+  },
+
+  // PHASE 3: Automation & Late game (90-180 minutes)
+  {
+    id: 'auto_pricer',
+    name: 'Automated Pricing Tool',
+    description: 'Automatically adjust prices on aging inventory to maximize turnover.',
+    cost: 20000,
+    category: 'automation',
+    requirements: { revenue: 175000, lifetimeSales: 100 },
+    effects: { enableAutoPricer: true },
+  },
+  {
+    id: 'speed_boost_5x',
+    name: 'Time Acceleration (5x)',
+    description: 'Unlock 5x speed multiplier for faster progression.',
+    cost: 25000,
+    category: 'efficiency',
+    requirements: { revenue: 200000, upgrades: ['sales_manager'] },
+    effects: { speedMultiplier: 5 },
+  },
+  {
+    id: 'sixth_advisor',
+    name: 'Hire 6th Sales Advisor',
+    description: 'Build an elite sales team.',
+    cost: 20000,
+    category: 'staff',
+    requirements: { revenue: 250000, upgrades: ['fifth_advisor'] },
+    effects: { maxAdvisors: 6 },
+  },
+  {
+    id: 'additional_techs_2',
+    name: 'Expand Service Team (6 total)',
+    description: 'Hire 2 more technicians for maximum service capacity.',
+    cost: 20000,
+    category: 'staff',
+    requirements: { revenue: 275000, upgrades: ['additional_techs_1'] },
+    effects: { maxTechnicians: 6 },
+  },
+  {
+    id: 'auto_buyer',
+    name: 'Automated Inventory Manager',
+    description: 'Automatically purchase inventory when stock is low. Set it and forget it!',
+    cost: 35000,
+    category: 'automation',
+    requirements: { revenue: 300000, lifetimeSales: 150, upgrades: ['auto_pricer'] },
+    effects: { enableAutoBuyer: true },
+  },
+  {
+    id: 'marketing_optimizer',
+    name: 'Marketing ROI Optimizer',
+    description: 'Automatically adjust marketing spend based on ROI. Full automation!',
+    cost: 40000,
+    category: 'automation',
+    requirements: { revenue: 400000, upgrades: ['auto_buyer'] },
+    effects: { enableMarketingOptimizer: true },
+  },
+  {
+    id: 'inventory_expansion_3',
+    name: 'Mega Lot (100 slots)',
+    description: 'Massive expansion to hold up to 100 vehicles.',
+    cost: 50000,
+    category: 'capacity',
+    requirements: { revenue: 500000, lifetimeSales: 250, upgrades: ['inventory_expansion_2'] },
+    effects: { maxInventorySlots: 100 },
+  },
+  {
+    id: 'speed_boost_30x',
+    name: 'Maximum Time Acceleration (30x)',
+    description: 'Unlock 30x speed for rapid progression. Watch your empire grow!',
+    cost: 50000,
+    category: 'efficiency',
+    requirements: { revenue: 600000, upgrades: ['speed_boost_5x'] },
+    effects: { speedMultiplier: 30 },
+  },
+
+  // PHASE 4: End-game (180+ minutes)
+  {
+    id: 'elite_team',
+    name: 'Elite Sales Team (8 advisors)',
+    description: 'Build a massive sales force.',
+    cost: 60000,
+    category: 'staff',
+    requirements: { revenue: 750000, upgrades: ['sixth_advisor'] },
+    effects: { maxAdvisors: 8 },
+  },
+  {
+    id: 'service_empire',
+    name: 'Service Empire (10 techs)',
+    description: 'Maximum service capacity with 10 technicians.',
+    cost: 70000,
+    category: 'staff',
+    requirements: { revenue: 850000, upgrades: ['additional_techs_2'] },
+    effects: { maxTechnicians: 10 },
+  },
+  {
+    id: 'inventory_expansion_4',
+    name: 'Ultimate Lot (200 slots)',
+    description: 'The ultimate dealership lot. Hold up to 200 vehicles.',
+    cost: 100000,
+    category: 'capacity',
+    requirements: { revenue: 1000000, lifetimeSales: 500, upgrades: ['inventory_expansion_3'] },
+    effects: { maxInventorySlots: 200 },
+  },
+];
+
+/**
+ * Achievement definitions
+ * Hidden achievements that unlock based on milestones
+ */
+export const ACHIEVEMENT_DEFINITIONS: Omit<Achievement, 'completed' | 'completedDate'>[] = [
+  {
+    id: 'first_sale',
+    name: 'First Blood',
+    description: 'Make your first sale',
+    hidden: false,
+    requirements: { type: 'sales', value: 1 },
+  },
+  {
+    id: 'ten_sales',
+    name: 'Getting Started',
+    description: 'Sell 10 vehicles',
+    hidden: false,
+    requirements: { type: 'sales', value: 10 },
+  },
+  {
+    id: 'fifty_sales',
+    name: 'Volume Dealer',
+    description: 'Sell 50 vehicles',
+    hidden: false,
+    requirements: { type: 'sales', value: 50 },
+  },
+  {
+    id: 'hundred_sales',
+    name: 'Century Club',
+    description: 'Sell 100 vehicles',
+    hidden: false,
+    requirements: { type: 'sales', value: 100 },
+  },
+  {
+    id: 'five_hundred_sales',
+    name: 'Sales Master',
+    description: 'Sell 500 vehicles',
+    hidden: true,
+    requirements: { type: 'sales', value: 500 },
+  },
+  {
+    id: 'revenue_50k',
+    name: 'Breaking Ground',
+    description: 'Earn $50,000 in total revenue',
+    hidden: false,
+    requirements: { type: 'revenue', value: 50000 },
+  },
+  {
+    id: 'revenue_250k',
+    name: 'Quarter Million',
+    description: 'Earn $250,000 in total revenue',
+    hidden: false,
+    requirements: { type: 'revenue', value: 250000 },
+  },
+  {
+    id: 'revenue_1m',
+    name: 'Millionaire',
+    description: 'Earn $1,000,000 in total revenue',
+    hidden: true,
+    requirements: { type: 'revenue', value: 1000000 },
+  },
+  {
+    id: 'csi_excellence',
+    name: 'Customer First',
+    description: 'Achieve 90+ CSI rating',
+    hidden: false,
+    requirements: { type: 'csi', value: 90 },
+  },
+  {
+    id: 'cash_rich',
+    name: 'Cash is King',
+    description: 'Have $100,000 in cash on hand',
+    hidden: false,
+    requirements: { type: 'cash', value: 100000 },
+  },
+];
+
+/**
+ * Get base upgrade capabilities (before any upgrades)
+ */
+export const BASE_CAPABILITIES = {
+  maxAdvisors: 1,
+  maxTechnicians: 0,
+  maxInventorySlots: 15,
+  hasService: false,
+  canAutoAdvance: false,
+  canAutoBuy: false,
+  canAutoPricer: false,
+  canOptimizeMarketing: false,
+  maxSpeed: 1,
+  hasBulkBuying: false,
+  hasIncreasedMarketing: false,
+  hasPremiumVehicles: false,
+};
+
+
+
+

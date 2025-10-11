@@ -15,6 +15,11 @@ const moraleColor = (morale: number) => {
 
 const SalesView = ({ state }: Props) => {
   const latest = state.dailyHistory[state.dailyHistory.length - 1];
+  
+  // Real-time today's totals
+  const todayUnits = (state.todayDeals || []).length;
+  const todayLeads = state.todayLeadsGenerated || 0;
+  const todayAppointments = state.todayAppointments || 0;
 
   return (
     <div className="grid gap-6 lg:grid-cols-2">
@@ -26,15 +31,15 @@ const SalesView = ({ state }: Props) => {
         <CardContent className="grid grid-cols-3 gap-3 text-center text-slate-200">
           <div className="rounded-lg border border-slate-700 bg-slate-900/70 p-4">
             <p className="text-sm text-slate-400">Leads</p>
-            <p className="mt-2 text-3xl font-bold">{state.pipeline.leads}</p>
+            <p className="mt-2 text-3xl font-bold">{todayLeads}</p>
           </div>
           <div className="rounded-lg border border-slate-700 bg-slate-900/70 p-4">
             <p className="text-sm text-slate-400">Appointments</p>
-            <p className="mt-2 text-3xl font-bold">{state.pipeline.appointments}</p>
+            <p className="mt-2 text-3xl font-bold">{todayAppointments}</p>
           </div>
           <div className="rounded-lg border border-slate-700 bg-slate-900/70 p-4">
             <p className="text-sm text-slate-400">Deals</p>
-            <p className="mt-2 text-3xl font-bold">{latest?.salesUnits ?? 0}</p>
+            <p className="mt-2 text-3xl font-bold">{todayUnits}</p>
           </div>
         </CardContent>
       </Card>

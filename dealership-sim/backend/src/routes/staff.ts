@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { EngineRequest } from './types';
 import { ADVISOR_ARCHETYPES, TECH_ARCHETYPES } from '../core/balance/archetypes';
 import { OPERATING_EXPENSES } from '@dealership/shared';
+import { validateHiring, canAutoAdvance } from '../core/progression/featureFlags';
 
 const router = Router();
 
@@ -44,6 +45,12 @@ router.post('/staff/hire', (req: EngineRequest, res) => {
   }
   
   if (parsed.data.role === 'advisor') {
+    // Validate hiring limits
+    const validation = validateHiring(state, 'advisor');
+    if (!validation.valid) {
+      return res.status(400).json({ error: validation.error });
+    }
+    
     const archetype = ADVISOR_ARCHETYPES.find((arch) => arch.id === parsed.data.archetype);
     if (!archetype) {
       return res.status(400).json({ error: 'Unknown advisor archetype' });
@@ -63,6 +70,12 @@ router.post('/staff/hire', (req: EngineRequest, res) => {
       active: true,
     });
   } else {
+    // Validate hiring limits
+    const validation = validateHiring(state, 'technician');
+    if (!validation.valid) {
+      return res.status(400).json({ error: validation.error });
+    }
+    
     const archetype = TECH_ARCHETYPES.find((arch) => arch.id === parsed.data.archetype);
     if (!archetype) {
       return res.status(400).json({ error: 'Unknown technician archetype' });

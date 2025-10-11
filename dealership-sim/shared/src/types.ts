@@ -248,6 +248,56 @@ export interface LeadActivity {
   gross?: number;
 }
 
+export interface UpgradeRequirements {
+  revenue?: number;
+  lifetimeSales?: number;
+  csi?: number;
+  cash?: number;
+  achievements?: string[];
+  businessLevel?: number;
+  upgrades?: string[]; // Other upgrades that must be purchased first
+}
+
+export interface UpgradeEffect {
+  maxAdvisors?: number;
+  maxTechnicians?: number;
+  maxInventorySlots?: number;
+  unlockService?: boolean;
+  enableAutoAdvance?: boolean;
+  enableAutoBuyer?: boolean;
+  enableAutoPricer?: boolean;
+  enableMarketingOptimizer?: boolean;
+  speedMultiplier?: number;
+  additionalFeatures?: string[];
+}
+
+export type UpgradeCategory = 'staff' | 'facilities' | 'automation' | 'capacity' | 'efficiency';
+
+export interface Upgrade {
+  id: string;
+  name: string;
+  description: string;
+  cost: number;
+  category: UpgradeCategory;
+  unlocked: boolean;  // Visible to player
+  purchased: boolean;
+  requirements: UpgradeRequirements;
+  effects: UpgradeEffect;
+}
+
+export interface Achievement {
+  id: string;
+  name: string;
+  description: string;
+  completed: boolean;
+  completedDate?: string;
+  hidden: boolean; // Don't show until completed
+  requirements: {
+    type: 'revenue' | 'sales' | 'csi' | 'cash' | 'service_ros' | 'streak';
+    value: number;
+  };
+}
+
 export interface GameState {
   day: number;
   month: number;
@@ -292,6 +342,10 @@ export interface GameState {
   unlockedFeatures: string[];
   leadActivity: LeadActivity[];
   salesGoal: number; // Annual sales goal (SPG)
+  // Progression system
+  availableUpgrades: Upgrade[];
+  purchasedUpgrades: string[];
+  achievements: Achievement[];
 }
 
 export interface HealthCheckResult {

@@ -27,6 +27,7 @@ interface GameStore {
   upgradeBusiness: () => Promise<void>;
   setSalesGoal: (goal: number) => Promise<void>;
   hireManager: () => Promise<void>;
+  purchaseUpgrade: (upgradeId: string) => Promise<void>;
   clearError: () => void;
   dismissToast: (id: string) => void;
 }
@@ -189,6 +190,17 @@ export const useGameStore = create<GameStore>()(
         get().pushNotifications(['Sales Manager hired! You can now use auto-advance.']);
       } catch (error: any) {
         set({ error: error.message || 'Failed to hire Sales Manager' });
+      }
+    },
+    async purchaseUpgrade(upgradeId: string) {
+      try {
+        const state = await safePost<GameState>('/api/upgrades/purchase', { upgradeId });
+        set({ gameState: state });
+        get().pushNotifications(state.notifications);
+      } catch (error: any) {
+        const errorMessage = error.response?.data?.error || error.message || 'Failed to purchase upgrade';
+        set({ error: typeof errorMessage === 'string' ? errorMessage : 'Failed to purchase upgrade' });
+        get().pushNotifications([`Error: ${typeof errorMessage === 'string' ? errorMessage : 'Failed to purchase upgrade'}`]);
       }
     },
     clearError() {

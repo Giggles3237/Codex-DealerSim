@@ -14,8 +14,9 @@ import {
 import { ADVISOR_ARCHETYPES, TECH_ARCHETYPES } from '../core/balance/archetypes';
 import { RNG } from '../utils/random';
 import { createVehicle } from '../core/services/inventory';
+import { initializeAchievements } from '../core/progression/unlockManager';
 
-const STARTING_CASH = 150_000; // Much smaller starting capital for tycoon feel
+const STARTING_CASH = 25_000; // Minimal starting capital for incremental game feel
 const START_YEAR = 2024;
 const START_MONTH = 1;
 const START_DAY = 1;
@@ -25,40 +26,69 @@ const baseMarketing: MarketingState = {
   leadMultiplier: 1,
 };
 
-const createAdvisors = (rng: RNG, maxAdvisors: number = 3): SalesAdvisor[] => {
-  return ADVISOR_ARCHETYPES.slice(0, maxAdvisors).map((arch, index) => ({
-    id: `advisor-${index + 1}`,
-    name: arch.name,
-    archetype: arch.id,
+const createAdvisors = (rng: RNG, maxAdvisors: number = 1): SalesAdvisor[] => {
+  // Start with just 1 advisor - pick the rookie for authenticity
+  const rookie = ADVISOR_ARCHETYPES.find(a => a.id === 'rookie') || ADVISOR_ARCHETYPES[0];
+  return [{
+    id: 'advisor-1',
+    name: rookie.name,
+    archetype: rookie.id,
     skill: {
-      close: 55 + rng.nextFloat() * 30,
-      gross: 55 + rng.nextFloat() * 30,
-      csi: 50 + rng.nextFloat() * 20,
-      speed: 50 + rng.nextFloat() * 20,
+      close: 45 + rng.nextFloat() * 15, // Lower skills for starting advisor
+      gross: 45 + rng.nextFloat() * 15,
+      csi: 45 + rng.nextFloat() * 15,
+      speed: 45 + rng.nextFloat() * 15,
     },
-    morale: 65 + rng.nextFloat() * 20,
-    trained: index % 3 === 0 ? ['delivery-mastery'] : [],
+    morale: 55 + rng.nextFloat() * 15,
+    trained: [],
     active: true,
-  }));
+  }];
 };
 
-const createTechnicians = (rng: RNG, maxTechnicians: number = 2): Technician[] => {
-  return TECH_ARCHETYPES.slice(0, maxTechnicians).map((arch, index) => ({
-    id: `tech-${index + 1}`,
-    name: arch.name,
-    archetype: arch.id,
-    efficiency: 1 + arch.modifiers.efficiency,
-    comebackRate: 0.08 + arch.modifiers.comebackRate,
-    morale: 60 + rng.nextFloat() * 25,
-    active: true,
-  }));
+const createTechnicians = (rng: RNG, maxTechnicians: number = 0): Technician[] => {
+  // Start with NO technicians - service is locked initially
+  return [];
+};
+
+// Create minimal starter inventory for incremental game feel
+const createStarterInventory = (rng: RNG, coefficients: Coefficients, pricingState: PricingState, count: number = 4, maxSlots: number = 15): Vehicle[] => {
+  const vehicles: Vehicle[] = [];
+  const starterSegments: Vehicle['segment'][] = ['compact', 'sedan']; // Only cheap segments to start
+  
+  // Calculate avg cost based on lot size (smaller lot = cheaper vehicles)
+  const avgCostPerUnit = 15000 + (maxSlots * 150);
+  
+  for (let i = 0; i < count; i++) {
+    const baseCost = avgCostPerUnit * 0.65 * (0.9 + rng.nextFloat() * 0.3); // Cheaper than average for starters
+    const segment = rng.pick(starterSegments);
+    const vehicle = createVehicle(
+      {
+        segment,
+        condition: 'used', // Only used cars to start
+        desirability: 40 + rng.nextFloat() * 20, // 40-60 desirability
+        ageDays: Math.floor(rng.nextFloat() * 20), // 0-20 days old
+        make: 'Generic',
+        model: segment === 'sedan' ? 'Sedan' : 'Compact',
+      },
+      rng,
+      coefficients,
+      baseCost,
+      pricingState,
+    );
+    vehicles.push(vehicle);
+  }
+  return vehicles;
 };
 
 const createInventory = (rng: RNG, coefficients: Coefficients, pricingState: PricingState, maxSlots: number = 15): Vehicle[] => {
   const segments: Vehicle['segment'][] = ['suv', 'sedan', 'crossover', 'compact', 'ev', 'performance', 'luxury', 'convertible'];
   const vehicles: Vehicle[] = [];
+  
+  // Calculate avg cost based on lot size (smaller lot = cheaper vehicles)
+  const avgCostPerUnit = 15000 + (maxSlots * 150);
+  
   while (vehicles.length < maxSlots) {
-    const baseCost = 28000 * (0.9 + rng.nextFloat() * 0.6);
+    const baseCost = avgCostPerUnit * (0.9 + rng.nextFloat() * 0.6);
     const segment = rng.pick(segments);
     const condition: Vehicle['condition'] = rng.pick(['new', 'used', 'cpo', 'bev']);
     const vehicle = createVehicle(
@@ -140,10 +170,10 @@ export const createSeedState = (seed = 42, coefficients: Coefficients = DEFAULT_
   const rng = new RNG(seed);
   const pricingState: PricingState = { ...DEFAULT_PRICING_STATE };
   
-  // Start small - Level 1 business constraints
-  const advisors = createAdvisors(rng, 3); // Only 3 advisors
-  const technicians = createTechnicians(rng, 2); // Only 2 technicians
-  const inventory = createInventory(rng, coefficients, pricingState, 8); // Only 8 vehicles to start
+  // MINIMAL START - Incremental game style
+  const advisors = createAdvisors(rng, 1); // Only 1 advisor (rookie)
+  const technicians = createTechnicians(rng, 0); // NO technicians (service locked)
+  const inventory = createStarterInventory(rng, coefficients, pricingState, 4); // Only 4 cheap used cars
   const history = createHistory(rng);
 
   const state: GameState = {
@@ -152,7 +182,7 @@ export const createSeedState = (seed = 42, coefficients: Coefficients = DEFAULT_
     year: START_YEAR,
     hour: 9, // Start at 9 AM
     speed: 1,
-    paused: false, // Start unpaused so hours auto-advance
+    paused: true, // Start paused for player to read initial state
     cash: STARTING_CASH,
     // Initialize daily accumulators
     todayDeals: [],
@@ -175,7 +205,7 @@ export const createSeedState = (seed = 42, coefficients: Coefficients = DEFAULT_
     recentDeals: [],
     serviceQueue: [],
     completedROs: [],
-    marketing: { spendPerDay: 500, leadMultiplier: 1 }, // Smaller marketing budget
+    marketing: { spendPerDay: 200, leadMultiplier: 1 }, // Very small starting marketing budget
     pricing: pricingState,
     economy: {
       demandIndex: 1,
@@ -185,17 +215,26 @@ export const createSeedState = (seed = 42, coefficients: Coefficients = DEFAULT_
       season: 'winter',
     },
     coefficients: { ...coefficients },
-    csi: 82,
-    moraleIndex: 72,
+    csi: 75,
+    moraleIndex: 60,
     dailyHistory: history.daily,
     monthlyReports: history.monthly,
-    notifications: ['Welcome to your small lot! Hire a Sales Manager to enable auto-advance, or advance each day manually.'],
+    notifications: [
+      '🚗 Welcome to your tiny used car lot!',
+      'You have 1 advisor, 4 cheap cars, and $25,000 cash.',
+      'Sell cars to earn money and unlock upgrades.',
+      'Every sale counts - watch your cash flow carefully!'
+    ],
     businessLevel: 1,
     totalRevenue: 0,
     lifetimeSales: 0,
     unlockedFeatures: ['basic_operations'],
     leadActivity: [],
     salesGoal: 120, // Start with a modest goal of 120 cars per year (10/month)
+    // Progression system initialization
+    availableUpgrades: [], // Will be populated by unlock evaluation
+    purchasedUpgrades: [],
+    achievements: initializeAchievements(), // Initialize all achievements as uncompleted
   };
   return state;
 };
