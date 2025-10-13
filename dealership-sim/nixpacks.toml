@@ -1,0 +1,8 @@
+[phases.install]
+cmds = ["pnpm install --no-frozen-lockfile"]
+
+[phases.build]
+cmds = ["pnpm --filter=@dealership/backend build"]
+
+[start]
+cmd = "pnpm --filter=@dealership/backend start"
