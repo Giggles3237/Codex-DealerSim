@@ -56,6 +56,7 @@ export const useGameStore = create<GameStore>()(
       try {
         const state = await safeGet<GameState>('/api/state');
         set({ gameState: state });
+        // Don't push notifications on refresh - only on explicit actions
       } catch (error) {
         console.error('Failed to refresh state:', error);
         // Silent fail for background refresh

@@ -2,7 +2,7 @@ import { Coefficients, ConfigPreset, BusinessLevel } from './types';
 
 export const DEFAULT_COEFFICIENTS: Coefficients = {
   lead: {
-    basePerDay: 2,
+    basePerDay: 10,
     marketingK: 0.10,
     diminishingK: 0.35,
   },

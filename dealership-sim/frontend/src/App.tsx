@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Loader2, Pause, Play, AlertTriangle } from 'lucide-react';
 import { useGameStore } from './state/useGameStore';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/ui/tabs';
@@ -14,6 +14,8 @@ import BusinessView from './features/business/BusinessView';
 import UpgradeShop from './features/upgrades/UpgradeShop';
 
 const App = () => {
+  const [gameStarted, setGameStarted] = useState(false);
+  
   const {
     gameState,
     initialize,
@@ -28,9 +30,12 @@ const App = () => {
     health,
   } = useGameStore();
 
-  useEffect(() => {
-    initialize();
-  }, [initialize]);
+  const handleStartGame = async () => {
+    setGameStarted(true);
+    await initialize();
+    // Auto-unpause so the game starts running
+    setTimeout(() => setPaused(false), 500);
+  };
 
   // Auto-refresh game state while game is running
   useEffect(() => {
@@ -61,9 +66,41 @@ const App = () => {
     ];
   }, [gameState]);
 
+  // Show welcome screen before game starts
+  if (!gameStarted) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-foreground overflow-hidden">
+        <div className="text-center space-y-8 animate-fadeIn">
+          <div className="space-y-4">
+            <h1 className="text-6xl font-bold tracking-tight bg-gradient-to-r from-blue-400 via-cyan-400 to-blue-500 bg-clip-text text-transparent animate-slideDown">
+              🚗 Dealership Simulator
+            </h1>
+            <p className="text-xl text-slate-400 animate-slideUp">
+              Build your automotive empire from the ground up
+            </p>
+          </div>
+          
+          <Button 
+            onClick={handleStartGame}
+            size="lg"
+            className="text-xl px-12 py-8 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 transform hover:scale-105 transition-all duration-300 shadow-2xl shadow-blue-500/50 animate-bounce"
+          >
+            🎮 Start Game
+          </Button>
+          
+          <div className="pt-8 space-y-2 text-sm text-slate-500 animate-fadeIn" style={{ animationDelay: '0.5s' }}>
+            <p>• Start small with just 10 used cars and 1 sales advisor</p>
+            <p>• Grow your dealership through smart decisions</p>
+            <p>• Unlock upgrades and expand your empire</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (loading || !gameState) {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-background text-foreground">
+      <div className="flex h-screen w-full items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-foreground">
         {error ? (
           <div className="text-center">
             <p className="text-xl font-semibold text-red-400">{error}</p>
@@ -106,13 +143,12 @@ const App = () => {
               >
                 {gameState.hour === 21 && gameState.paused ? '✓ Close Out Day' : 'Close Out Day'}
               </Button>
-              {true ? (
+              {gameState.unlockedFeatures?.includes('speed_controls') && (
                 <>
                   <Button 
                     variant="outline" 
                     onClick={() => setSpeed(1)} 
                     className={gameState.speed === 1 ? 'border-primary text-primary' : ''}
-                    disabled={!gameState.salesManager}
                   >
                     1x (2s/hr)
                   </Button>
@@ -120,7 +156,6 @@ const App = () => {
                     variant="outline" 
                     onClick={() => setSpeed(5)} 
                     className={gameState.speed === 5 ? 'border-primary text-primary' : ''}
-                    disabled={!gameState.salesManager}
                   >
                     5x (0.4s/hr)
                   </Button>
@@ -128,24 +163,23 @@ const App = () => {
                     variant="outline" 
                     onClick={() => setSpeed(30)} 
                     className={gameState.speed === 30 ? 'border-primary text-primary' : ''}
-                    disabled={!gameState.salesManager}
                   >
                     Fast (0.067s/hr)
                   </Button>
-                  <Button 
-                    variant={isPaused ? "outline" : "default"} 
-                    onClick={() => setPaused(!isPaused)}
-                    className={!isPaused ? 'bg-green-600 hover:bg-green-700' : ''}
-                    disabled={gameState.hour === 21}
-                  >
-                    {isPaused ? (
-                      <span className="flex items-center gap-2"><Play className="h-4 w-4" /> Resume</span>
-                    ) : (
-                      <span className="flex items-center gap-2"><Pause className="h-4 w-4" /> Pause</span>
-                    )}
-                  </Button>
                 </>
-              ) : null}
+              )}
+              <Button 
+                variant={isPaused ? "outline" : "default"} 
+                onClick={() => setPaused(!isPaused)}
+                className={!isPaused ? 'bg-green-600 hover:bg-green-700' : ''}
+                disabled={gameState.hour === 21}
+              >
+                {isPaused ? (
+                  <span className="flex items-center gap-2"><Play className="h-4 w-4" /> Resume</span>
+                ) : (
+                  <span className="flex items-center gap-2"><Pause className="h-4 w-4" /> Pause</span>
+                )}
+              </Button>
             </div>
           </div>
         </header>
@@ -211,15 +245,21 @@ const App = () => {
 
       <ToastViewport className="fixed bottom-4 right-4 z-50 flex w-full max-w-sm flex-col gap-2" />
       {toasts.map((toast) => {
-        const isDailySummary = toast.description.includes('📊 Day') && toast.description.includes('Summary:');
+        const isDailySummary = toast.description.includes('📊 Day') && toast.description.includes('Complete!');
         
         if (isDailySummary) {
+          const handleDismiss = () => {
+            dismissToast(toast.id);
+            // Auto-resume after dismissing daily summary
+            setPaused(false);
+          };
+          
           return (
             <div key={toast.id} className="fixed inset-0 z-[100000] flex items-center justify-center" style={{ zIndex: 100000 }}>
               {/* Backdrop */}
               <div 
                 className="absolute inset-0 bg-black/80"
-                onClick={() => dismissToast(toast.id)}
+                onClick={handleDismiss}
               />
               {/* Modal */}
               <div className="relative z-10 max-w-2xl w-[90vw] rounded-xl border-2 border-blue-500/50 bg-slate-800 shadow-2xl p-6">
@@ -228,7 +268,7 @@ const App = () => {
                     <h3 className="text-lg font-bold text-blue-400">{toast.title}</h3>
                     <button
                       type="button"
-                      onClick={() => dismissToast(toast.id)}
+                      onClick={handleDismiss}
                       className="text-slate-400 hover:text-slate-200 text-xl font-bold px-2"
                     >
                       ✕
@@ -239,10 +279,10 @@ const App = () => {
                   </div>
                   <button
                     type="button"
-                    onClick={() => dismissToast(toast.id)}
+                    onClick={handleDismiss}
                     className="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg"
                   >
-                    Continue
+                    Continue to Next Day
                   </button>
                 </div>
               </div>

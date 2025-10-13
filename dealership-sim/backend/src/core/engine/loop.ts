@@ -393,12 +393,7 @@ export class SimulationEngine {
 
     // Removed guardrail notification - no longer needed
     
-    // Check for progression unlocks and achievements
-    const progressionResult = runProgressionCheck(nextState);
-    nextState = progressionResult.state;
-    nextState.notifications.push(...progressionResult.notifications);
-
-    // Create daily summary notification
+    // Create daily summary notification (shown first as modal)
     const dailySummary = this.createDailySummary(
       nextState,
       soldCount,
@@ -414,8 +409,13 @@ export class SimulationEngine {
     );
     nextState.notifications.push(dailySummary);
 
-    // Auto-resume after closeout - user must manually pause
-    nextState.paused = false;
+    // Check for progression unlocks and achievements (shown after daily summary)
+    const progressionResult = runProgressionCheck(nextState);
+    nextState = progressionResult.state;
+    nextState.notifications.push(...progressionResult.notifications);
+
+    // Keep paused after closeout so player can see summary
+    nextState.paused = true;
 
     return nextState;
   }
@@ -449,7 +449,7 @@ export class SimulationEngine {
     
     // Show the previous day's summary (the day that just completed)
     const completedDay = state.day === 1 ? 30 : state.day - 1;
-    let summary = `📊 Day ${completedDay} Summary:\n\n`;
+    let summary = `📊 Day ${completedDay} Complete!\n\n`;
     
     // Sales Performance
     summary += `━━━ 🚗 SALES ━━━\n`;

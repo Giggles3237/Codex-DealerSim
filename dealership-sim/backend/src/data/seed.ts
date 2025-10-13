@@ -173,7 +173,7 @@ export const createSeedState = (seed = 42, coefficients: Coefficients = DEFAULT_
   // MINIMAL START - Incremental game style
   const advisors = createAdvisors(rng, 1); // Only 1 advisor (rookie)
   const technicians = createTechnicians(rng, 0); // NO technicians (service locked)
-  const inventory = createStarterInventory(rng, coefficients, pricingState, 4); // Only 4 cheap used cars
+  const inventory = createStarterInventory(rng, coefficients, pricingState, 10); // Start with 10 cheap used cars
   const history = createHistory(rng);
 
   const state: GameState = {

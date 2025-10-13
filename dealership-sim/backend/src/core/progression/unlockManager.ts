@@ -197,6 +197,12 @@ export function runProgressionCheck(state: GameState): {
   const notifications: string[] = [];
   let nextState = { ...state };
   
+  // Check for day-based unlocks
+  if (nextState.day === 4 && !nextState.unlockedFeatures.includes('speed_controls')) {
+    nextState.unlockedFeatures = [...nextState.unlockedFeatures, 'speed_controls'];
+    notifications.push(`⏱️ Time's starting to fly! Speed controls are now available.`);
+  }
+  
   // Check for new upgrades
   const newUpgrades = evaluateUpgrades(nextState);
   if (newUpgrades.length > 0) {
@@ -226,6 +232,7 @@ export function runProgressionCheck(state: GameState): {
   
   return { state: nextState, notifications };
 }
+
 
 
 
