@@ -5,4 +5,4 @@ cmds = ["pnpm install --no-frozen-lockfile"]
 cmds = ["pnpm --filter=@dealership/backend build"]
 
 [start]
-cmd = "cd backend && node dist/index.js"
+cmd = "node backend/dist/index.js"
