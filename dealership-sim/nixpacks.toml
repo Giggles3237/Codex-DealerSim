@@ -1,5 +1,8 @@
 [phases.install]
-cmds = ["pnpm install --no-frozen-lockfile --prod --filter=@dealership/backend..."]
+cmds = ["pnpm install --no-frozen-lockfile"]
+
+[phases.build]
+cmds = ["pnpm --filter=@dealership/backend build"]
 
 [start]
-cmd = "node backend/dist/index.js"
+cmd = "pnpm --filter=@dealership/backend start"
