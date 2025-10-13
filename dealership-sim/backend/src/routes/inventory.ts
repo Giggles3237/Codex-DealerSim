@@ -1,6 +1,6 @@
-import { Router } from 'express';
+import { Router, Response } from 'express';
 import { z } from 'zod';
-import { EngineRequest } from './types';
+import { EngineRequest, asEngineHandler } from './types';
 import { acquirePack, applyPricingPolicy } from '../core/services/inventory';
 import { RNG } from '../utils/random';
 import { Vehicle, PricingPolicy } from '@dealership/shared';
@@ -29,7 +29,7 @@ const agingDiscountsSchema = z.object({
   days90: z.number().min(0).max(0.5),
 });
 
-router.post('/inventory/acquire', (req: EngineRequest, res) => {
+router.post('/inventory/acquire', asEngineHandler((req: EngineRequest, res: Response) => {
   const parsed = acquireSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.flatten() });
@@ -68,9 +68,9 @@ router.post('/inventory/acquire', (req: EngineRequest, res) => {
   state.notifications.push(`Purchased ${acquisition.vehicles.length} ${parsed.data.pack} vehicles at auction. They'll arrive tomorrow at noon.`);
   req.repository.setState(state);
   res.json(state);
-});
+}));
 
-router.post('/inventory/pricing-policy', (req: EngineRequest, res) => {
+router.post('/inventory/pricing-policy', asEngineHandler((req: EngineRequest, res: Response) => {
   const parsed = pricingPolicySchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.flatten() });
@@ -108,9 +108,9 @@ router.post('/inventory/pricing-policy', (req: EngineRequest, res) => {
   
   req.repository.setState(state);
   res.json(state);
-});
+}));
 
-router.post('/inventory/adjust-price', (req: EngineRequest, res) => {
+router.post('/inventory/adjust-price', asEngineHandler((req: EngineRequest, res: Response) => {
   const parsed = vehiclePriceSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.flatten() });
@@ -144,9 +144,9 @@ router.post('/inventory/adjust-price', (req: EngineRequest, res) => {
   
   req.repository.setState(state);
   res.json(state);
-});
+}));
 
-router.post('/inventory/aging-discounts', (req: EngineRequest, res) => {
+router.post('/inventory/aging-discounts', asEngineHandler((req: EngineRequest, res: Response) => {
   const parsed = agingDiscountsSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.flatten() });
@@ -177,6 +177,7 @@ router.post('/inventory/aging-discounts', (req: EngineRequest, res) => {
   
   req.repository.setState(state);
   res.json(state);
-});
+}));
 
 export default router;
+

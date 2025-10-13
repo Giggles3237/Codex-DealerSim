@@ -144,14 +144,16 @@ export class SimulationEngine {
       .concat(sales.soldVehicles.map(v => ({ ...v, status: 'sold' as const })));
 
     // Accumulate sales results
+    nextState.todayDeals = nextState.todayDeals || [];
+    nextState.todaySoldVehicles = nextState.todaySoldVehicles || [];
     nextState.todayDeals.push(...sales.deals);
     nextState.todaySoldVehicles.push(...sales.soldVehicles);
-    nextState.todayLeadsGenerated += sales.leadsGenerated;
-    nextState.todayAppointments += sales.appointments;
-    nextState.todayDealsWorked += sales.dealsWorked;
-    nextState.todayCashDelta += sales.cashDelta;
-    nextState.todayCsiDelta += sales.csiDelta;
-    nextState.todayMoraleDelta += sales.moraleDelta;
+    nextState.todayLeadsGenerated = (nextState.todayLeadsGenerated || 0) + sales.leadsGenerated;
+    nextState.todayAppointments = (nextState.todayAppointments || 0) + sales.appointments;
+    nextState.todayDealsWorked = (nextState.todayDealsWorked || 0) + sales.dealsWorked;
+    nextState.todayCashDelta = (nextState.todayCashDelta || 0) + sales.cashDelta;
+    nextState.todayCsiDelta = (nextState.todayCsiDelta || 0) + sales.csiDelta;
+    nextState.todayMoraleDelta = (nextState.todayMoraleDelta || 0) + sales.moraleDelta;
 
     // Update cash immediately
     nextState.cash = Math.round(nextState.cash + sales.cashDelta);
@@ -186,14 +188,14 @@ export class SimulationEngine {
     nextState.serviceQueue = serviceResult.queue;
     
     // Accumulate service results
-    nextState.todayServiceHours += serviceResult.laborHours;
-    nextState.todayServiceParts += serviceResult.partsRevenue;
-    nextState.todayServiceROs += serviceResult.completed.length;
+    nextState.todayServiceHours = (nextState.todayServiceHours || 0) + serviceResult.laborHours;
+    nextState.todayServiceParts = (nextState.todayServiceParts || 0) + serviceResult.partsRevenue;
+    nextState.todayServiceROs = (nextState.todayServiceROs || 0) + serviceResult.completed.length;
     
     const hourlyServiceGross = (serviceResult.partsRevenue + serviceResult.laborHours * 150) * 0.4;
     nextState.cash = Math.round(nextState.cash + hourlyServiceGross);
-    nextState.todayCashDelta += hourlyServiceGross;
-    nextState.todayCsiDelta += serviceResult.csiDelta;
+    nextState.todayCashDelta = (nextState.todayCashDelta || 0) + hourlyServiceGross;
+    nextState.todayCsiDelta = (nextState.todayCsiDelta || 0) + serviceResult.csiDelta;
 
     return nextState;
   }
@@ -380,7 +382,7 @@ export class SimulationEngine {
         servicePartsRevenue: partsRevenue,
         comebackRate,
         cashDelta: nextState.cash - state.cash,
-        advertisingROI: sales.cashDelta > 0 ? sales.cashDelta / Math.max(nextState.marketing.spendPerDay, 1) : 0,
+        advertisingROI: (state.todayCashDelta || 0) > 0 ? (state.todayCashDelta || 0) / Math.max(nextState.marketing.spendPerDay, 1) : 0,
         fixedCoverage: partsRevenue > 0 ? serviceGross / partsRevenue : 0,
         moraleTrend: nextState.moraleIndex - state.moraleIndex,
         trainingCompletions: nextState.advisors.reduce((acc, advisor) => acc + advisor.trained.length, 0),

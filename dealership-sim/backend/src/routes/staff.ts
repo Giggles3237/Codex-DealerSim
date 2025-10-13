@@ -1,6 +1,6 @@
-import { Router } from 'express';
+import { Router, Response } from 'express';
 import { z } from 'zod';
-import { EngineRequest } from './types';
+import { EngineRequest, asEngineHandler } from './types';
 import { ADVISOR_ARCHETYPES, TECH_ARCHETYPES } from '../core/balance/archetypes';
 import { OPERATING_EXPENSES } from '@dealership/shared';
 import { validateHiring, canAutoAdvance } from '../core/progression/featureFlags';
@@ -17,7 +17,7 @@ const trainSchema = z.object({
   program: z.string(),
 });
 
-router.post('/staff/hire', (req: EngineRequest, res) => {
+router.post('/staff/hire', asEngineHandler((req: EngineRequest, res: Response) => {
   const parsed = hireSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.flatten() });
@@ -93,9 +93,9 @@ router.post('/staff/hire', (req: EngineRequest, res) => {
   state.notifications.push(`Hired a new ${parsed.data.role} (${parsed.data.archetype}).`);
   req.repository.setState(state);
   res.json(state);
-});
+}));
 
-router.post('/staff/train', (req: EngineRequest, res) => {
+router.post('/staff/train', asEngineHandler((req: EngineRequest, res: Response) => {
   const parsed = trainSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.flatten() });
@@ -109,6 +109,7 @@ router.post('/staff/train', (req: EngineRequest, res) => {
   }
   req.repository.setState(state);
   res.json(state);
-});
+}));
 
 export default router;
+

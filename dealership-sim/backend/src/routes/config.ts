@@ -1,6 +1,6 @@
 import { Router, Response } from 'express';
 import { z } from 'zod';
-import { EngineRequest } from './types';
+import { EngineRequest, asEngineHandler } from './types';
 import { healthCheck, mergeCoefficients } from '../core/balance/coefficients';
 
 const configSchema = z.object({
@@ -17,13 +17,13 @@ const configSchema = z.object({
 
 const router = Router();
 
-router.get('/config', ((req: EngineRequest, res: Response) => {
+router.get('/config', asEngineHandler((req: EngineRequest, res: Response) => {
   const state = req.engine.getState();
   const check = healthCheck(state.inventory, state.coefficients);
   res.json({ coefficients: state.coefficients, health: check });
-}) as any);
+}));
 
-router.put('/config', ((req: EngineRequest, res: Response) => {
+router.put('/config', asEngineHandler((req: EngineRequest, res: Response) => {
   const parsed = configSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.flatten() });
@@ -34,13 +34,13 @@ router.put('/config', ((req: EngineRequest, res: Response) => {
   req.engine.updateCoefficients(merged);
   const check = healthCheck(state.inventory, merged);
   res.json({ coefficients: merged, health: check });
-}) as any);
+}));
 
 const salesGoalSchema = z.object({
   goal: z.number().min(1).max(10000),
 });
 
-router.post('/config/sales-goal', (req: EngineRequest, res) => {
+router.post('/config/sales-goal', asEngineHandler((req: EngineRequest, res: Response) => {
   const parsed = salesGoalSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.flatten() });
@@ -49,6 +49,6 @@ router.post('/config/sales-goal', (req: EngineRequest, res) => {
   state.salesGoal = parsed.data.goal;
   req.repository.setState(state);
   res.json(state);
-});
+}));
 
 export default router;

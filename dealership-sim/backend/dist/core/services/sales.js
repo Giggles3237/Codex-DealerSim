@@ -1,0 +1,262 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.__testing = exports.simulateSalesDay = exports.simulateSalesHour = exports.computeLeadVolume = void 0;
+const math_1 = require("../../utils/math");
+const archetypes_1 = require("../balance/archetypes");
+const BASE_COST_PER_LEAD = 8;
+const createCustomer = (rng) => {
+    const archetype = rng.pick(archetypes_1.CUSTOMER_ARCHETYPES);
+    return {
+        id: `cust-${Date.now()}-${rng.nextFloat()}`,
+        type: archetype.name,
+        channel: rng.pick(['walk-in', 'web', 'phone', 'referral']),
+        priceSensitivity: (0, math_1.clamp)(0.3 + archetype.modifiers.priceSensitivity, 0, 1),
+        paymentFocus: (0, math_1.clamp)(0.3 + rng.nextFloat() * 0.4, 0, 1),
+        loyalty: (0, math_1.clamp)(0.2 + archetype.modifiers.loyalty, 0, 1),
+        closeBias: archetype.modifiers.closeBias,
+        grossBias: archetype.modifiers.grossBias,
+        csiBias: archetype.modifiers.csiBias,
+        bevAffinity: archetype.modifiers.bevAffinity,
+    };
+};
+const advisorArchetypeModifier = (advisor) => {
+    const found = archetypes_1.ADVISOR_ARCHETYPES.find((arch) => arch.id === advisor.archetype);
+    return found ? found.modifiers.close : 0;
+};
+const advisorBackModifier = (advisor) => {
+    const found = archetypes_1.ADVISOR_ARCHETYPES.find((arch) => arch.id === advisor.archetype);
+    return found ? found.modifiers.backGross : 0;
+};
+const advisorMoraleEffect = (advisor) => {
+    return (advisor.morale - 50) / 200;
+};
+const computeLeadVolume = (marketing, economy, coefficients) => {
+    const marketingBoost = 1 + coefficients.lead.marketingK * (0, math_1.diminishingReturns)(marketing.spendPerDay / BASE_COST_PER_LEAD, coefficients.lead.diminishingK);
+    const weatherPenalty = 0.6 + economy.weatherFactor * 0.4;
+    const incentivesBoost = 1 + economy.incentiveLevel * 0.4;
+    return coefficients.lead.basePerDay * economy.demandIndex * marketingBoost * weatherPenalty * incentivesBoost;
+};
+exports.computeLeadVolume = computeLeadVolume;
+const pickAdvisor = (advisors, rng) => {
+    const active = advisors.filter((advisor) => advisor.active);
+    if (!active.length) {
+        return null;
+    }
+    return rng.pick(active);
+};
+const pickVehicle = (inventory, customer) => {
+    const bevPreference = customer.bevAffinity > 0.1;
+    const eligible = inventory.filter((vehicle) => vehicle.status === 'inStock' && (bevPreference ? vehicle.condition === 'bev' || vehicle.segment === 'ev' : true));
+    const sorted = eligible.sort((a, b) => b.desirability - a.desirability);
+    return sorted[0] ?? null;
+};
+const computeClosingProbability = (advisor, customer, vehicle, economy, coefficients) => {
+    const advisorClose = (advisor.skill.close - 50) / 50 + advisorArchetypeModifier(advisor);
+    const customerClose = customer.closeBias;
+    const desirabilityZ = (vehicle.desirability - 60) / 25;
+    const economyFactor = (economy.demandIndex - 1) * coefficients.sales.economyWeight;
+    const priceGap = (vehicle.asking - vehicle.cost) / Math.max(vehicle.cost, 1);
+    const priceFit = -priceGap * (0.5 + customer.priceSensitivity);
+    const morale = advisorMoraleEffect(advisor);
+    const raw = coefficients.sales.baseClose +
+        coefficients.sales.archetypeWeight * (advisorClose + morale) +
+        coefficients.sales.desirabilityWeight * desirabilityZ +
+        coefficients.sales.priceGapWeight * priceFit +
+        customerClose +
+        economyFactor;
+    return (0, math_1.clamp)((0, math_1.sigmoid)(raw), 0.05, 0.95);
+};
+const computeSoldPrice = (vehicle, coefficients, rng, customer, economy) => {
+    const variance = (rng.nextFloat() * 2 - 1) * coefficients.pricing.variancePct;
+    const incentiveBias = economy.incentiveLevel * 1000;
+    const discount = customer.priceSensitivity * 700;
+    const sold = vehicle.asking * (1 + variance) + incentiveBias - discount;
+    return Math.max(vehicle.floor, sold);
+};
+const computeFrontGross = (vehicle, soldPrice, coefficients) => {
+    const holdback = soldPrice * vehicle.holdbackPct;
+    const costBasis = vehicle.cost + vehicle.reconCost + vehicle.pack;
+    return soldPrice - costBasis + holdback;
+};
+const computeBackGross = (advisor, coefficients, rng, economy) => {
+    const baseProb = coefficients.finance.backGrossProb + advisorBackModifier(advisor);
+    const interestPenalty = (economy.interestRate - 5) / 10;
+    const finalProb = (0, math_1.clamp)(baseProb - interestPenalty, 0.1, 0.9);
+    return rng.nextFloat() < finalProb
+        ? coefficients.finance.avgBackGross * (1 + (advisor.skill.gross - 50) / 100)
+        : 0;
+};
+const simulateSalesHour = (advisors, inventory, marketing, economy, coefficients, rng, hour) => {
+    // Distribute daily activity across 12 business hours (9 AM - 9 PM)
+    // More activity during peak hours (10 AM - 2 PM, 5 PM - 8 PM)
+    let hourMultiplier = 1.0;
+    if (hour >= 10 && hour <= 14) {
+        hourMultiplier = 1.3; // Lunch rush
+    }
+    else if (hour >= 17 && hour <= 20) {
+        hourMultiplier = 1.2; // Evening rush
+    }
+    else if (hour === 9 || hour === 21) {
+        hourMultiplier = 0.6; // Opening/closing hours are slower
+    }
+    const dailyLeads = (0, exports.computeLeadVolume)(marketing, economy, coefficients);
+    const leads = Math.max(0, Math.round((dailyLeads / 12) * hourMultiplier));
+    const appointments = Math.max(0, Math.round(leads * (0.45 + economy.demandIndex * 0.15)));
+    const dealsWorked = Math.max(0, Math.round(appointments * 0.6));
+    const deals = [];
+    const soldVehicles = [];
+    const remainingInventory = [...inventory];
+    const customers = [];
+    const leadActivity = [];
+    let cashDelta = 0; // No marketing spend here - that's handled at end of day
+    let csiDelta = 0;
+    let moraleDelta = 0;
+    // Generate lead activity with realistic timestamps for this hour
+    const now = new Date();
+    const baseTime = now.getTime();
+    // Create lead activity for each step in the funnel
+    for (let i = 0; i < leads; i += 1) {
+        const customer = createCustomer(rng);
+        const timeOffset = Math.floor(rng.nextFloat() * 3600000); // Random time within the hour
+        leadActivity.push({
+            id: `lead-${baseTime}-${i}`,
+            timestamp: new Date(baseTime + timeOffset).toISOString(),
+            customerType: customer.type,
+            outcome: 'lead'
+        });
+    }
+    // Create appointment activity
+    for (let i = 0; i < appointments; i += 1) {
+        const advisor = pickAdvisor(advisors, rng);
+        if (advisor) {
+            const timeOffset = Math.floor(rng.nextFloat() * 3600000);
+            leadActivity.push({
+                id: `appt-${baseTime}-${i}`,
+                timestamp: new Date(baseTime + timeOffset).toISOString(),
+                advisorId: advisor.id,
+                advisorName: advisor.name,
+                customerType: 'Walk-in',
+                outcome: 'appointment'
+            });
+        }
+    }
+    for (let i = 0; i < dealsWorked; i += 1) {
+        const advisor = pickAdvisor(advisors, rng);
+        if (!advisor) {
+            break;
+        }
+        const customer = createCustomer(rng);
+        const vehicle = pickVehicle(remainingInventory, customer);
+        if (!vehicle) {
+            break;
+        }
+        customers.push(customer);
+        const closeProb = computeClosingProbability(advisor, customer, vehicle, economy, coefficients);
+        if (rng.nextFloat() <= closeProb) {
+            const soldPrice = computeSoldPrice(vehicle, coefficients, rng, customer, economy);
+            const frontGross = computeFrontGross(vehicle, soldPrice, coefficients);
+            const backGross = computeBackGross(advisor, coefficients, rng, economy);
+            const totalGross = frontGross + backGross;
+            const timeOffset = Math.floor(rng.nextFloat() * 3600000);
+            const deal = {
+                id: `deal-${baseTime}-${i}`,
+                vehicleId: vehicle.id,
+                advisorId: advisor.id,
+                customerId: customer.id,
+                date: new Date(baseTime + timeOffset).toISOString(),
+                frontGross,
+                backGross,
+                totalGross,
+                csiImpact: Math.max(-5, 5 * (advisor.skill.csi / 50 + customer.csiBias)),
+                soldPrice,
+            };
+            deals.push(deal);
+            soldVehicles.push({ ...vehicle, status: 'sold' });
+            const index = remainingInventory.findIndex((item) => item.id === vehicle.id);
+            if (index >= 0) {
+                remainingInventory.splice(index, 1);
+            }
+            // Add full sale price back to cash (cost was already paid when vehicle was acquired)
+            cashDelta += soldPrice;
+            csiDelta += deal.csiImpact;
+            moraleDelta += advisor.morale > 60 ? 0.2 : 0.1;
+            // Add sale activity
+            const saleTimeOffset = Math.floor(rng.nextFloat() * 3600000);
+            leadActivity.push({
+                id: `sale-${baseTime}-${i}`,
+                timestamp: new Date(baseTime + saleTimeOffset).toISOString(),
+                advisorId: advisor.id,
+                advisorName: advisor.name,
+                customerType: customer.type,
+                outcome: 'sale',
+                vehicleId: vehicle.id,
+                vehicleInfo: `${vehicle.year} ${vehicle.make} ${vehicle.model}`,
+                gross: deal.totalGross
+            });
+        }
+        else {
+            moraleDelta -= 0.05;
+            // Add no-sale activity
+            const noSaleTimeOffset = Math.floor(rng.nextFloat() * 3600000);
+            leadActivity.push({
+                id: `no-sale-${baseTime}-${i}`,
+                timestamp: new Date(baseTime + noSaleTimeOffset).toISOString(),
+                advisorId: advisor.id,
+                advisorName: advisor.name,
+                customerType: customer.type,
+                outcome: 'no_show'
+            });
+        }
+    }
+    return {
+        deals,
+        soldVehicles,
+        remainingInventory,
+        leadsGenerated: leads,
+        appointments,
+        dealsWorked,
+        cashDelta: cashDelta, // Just the sales revenue for this hour
+        csiDelta,
+        moraleDelta,
+        customers,
+        leadActivity,
+    };
+};
+exports.simulateSalesHour = simulateSalesHour;
+// For backwards compatibility and testing
+const simulateSalesDay = (advisors, inventory, marketing, economy, coefficients, rng) => {
+    // Simulate all 12 hours at once
+    let aggregatedResult = {
+        deals: [],
+        soldVehicles: [],
+        remainingInventory: inventory,
+        leadsGenerated: 0,
+        appointments: 0,
+        dealsWorked: 0,
+        cashDelta: -marketing.spendPerDay,
+        csiDelta: 0,
+        moraleDelta: 0,
+        customers: [],
+        leadActivity: [],
+    };
+    for (let hour = 9; hour <= 21; hour++) {
+        const hourResult = (0, exports.simulateSalesHour)(advisors, aggregatedResult.remainingInventory, marketing, economy, coefficients, rng, hour);
+        aggregatedResult.deals.push(...hourResult.deals);
+        aggregatedResult.soldVehicles.push(...hourResult.soldVehicles);
+        aggregatedResult.remainingInventory = hourResult.remainingInventory;
+        aggregatedResult.leadsGenerated += hourResult.leadsGenerated;
+        aggregatedResult.appointments += hourResult.appointments;
+        aggregatedResult.dealsWorked += hourResult.dealsWorked;
+        aggregatedResult.cashDelta += hourResult.cashDelta;
+        aggregatedResult.csiDelta += hourResult.csiDelta;
+        aggregatedResult.moraleDelta += hourResult.moraleDelta;
+        aggregatedResult.customers.push(...hourResult.customers);
+        aggregatedResult.leadActivity.push(...hourResult.leadActivity);
+    }
+    return aggregatedResult;
+};
+exports.simulateSalesDay = simulateSalesDay;
+exports.__testing = {
+    computeClosingProbability,
+    computeSoldPrice,
+};

@@ -1,10 +1,10 @@
-import { Router } from 'express';
-import { EngineRequest } from './types';
+import { Router, Response } from 'express';
+import { EngineRequest, asEngineHandler } from './types';
 import { BUSINESS_LEVELS } from '@dealership/shared';
 
 const router = Router();
 
-router.post('/sales-goal', (req: EngineRequest, res) => {
+router.post('/sales-goal', asEngineHandler((req: EngineRequest, res: Response) => {
   const { goal } = req.body;
   
   if (!goal || typeof goal !== 'number' || goal <= 0 || goal > 2000) {
@@ -16,9 +16,9 @@ router.post('/sales-goal', (req: EngineRequest, res) => {
   
   req.repository.setState(state);
   res.json(state);
-});
+}));
 
-router.post('/business/upgrade', (req: EngineRequest, res) => {
+router.post('/business/upgrade', asEngineHandler((req: EngineRequest, res: Response) => {
   const state = req.engine.getState();
   const currentLevel = BUSINESS_LEVELS.find(level => level.level === state.businessLevel);
   const nextLevel = BUSINESS_LEVELS.find(level => level.level === state.businessLevel + 1);
@@ -67,6 +67,6 @@ router.post('/business/upgrade', (req: EngineRequest, res) => {
   
   req.repository.setState(state);
   res.json(state);
-});
+}));
 
 export default router;

@@ -1,6 +1,6 @@
-import { Router } from 'express';
+import { Router, Response } from 'express';
 import { z } from 'zod';
-import { EngineRequest } from './types';
+import { EngineRequest, asEngineHandler } from './types';
 import { purchaseUpgrade } from '../core/progression/unlockManager';
 
 const router = Router();
@@ -9,7 +9,7 @@ const purchaseSchema = z.object({
   upgradeId: z.string(),
 });
 
-router.post('/upgrades/purchase', (req: EngineRequest, res) => {
+router.post('/upgrades/purchase', asEngineHandler((req: EngineRequest, res: Response) => {
   const parsed = purchaseSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.flatten() });
@@ -29,9 +29,10 @@ router.post('/upgrades/purchase', (req: EngineRequest, res) => {
   } catch (error: any) {
     return res.status(400).json({ error: error.message });
   }
-});
+}));
 
 export default router;
+
 
 
 

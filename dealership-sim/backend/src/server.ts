@@ -33,7 +33,7 @@ export const startServer = async ({ port, seedMode }: StartOptions) => {
   const repository = new GameRepository(initialState);
   const engine = new SimulationEngine(repository, { seed: 1337 });
 
-  let interval: NodeJS.Timer | null = null;
+  let interval: NodeJS.Timeout | null = null;
   const baseTickInterval = Number(process.env.TICK_INTERVAL_MS) || 2000; // 2 seconds per hour at 1x speed
 
   const schedule = () => {
