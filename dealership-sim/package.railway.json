@@ -1,0 +1,16 @@
+{
+  "name": "dealership-sim",
+  "version": "1.0.0",
+  "private": true,
+  "license": "MIT",
+  "packageManager": "pnpm@8.15.0",
+  "scripts": {
+    "build": "pnpm --filter=@dealership/backend build",
+    "start": "pnpm --filter=@dealership/backend start",
+    "install": "pnpm install --frozen-lockfile"
+  },
+  "dependencies": {
+    "@dealership/backend": "workspace:*",
+    "@dealership/shared": "workspace:*"
+  }
+}
