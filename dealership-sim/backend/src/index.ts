@@ -1,7 +1,13 @@
+console.log('=== BACKEND STARTING ===');
+
 import { config } from 'dotenv';
 config();
 
+console.log('=== DOTENV LOADED ===');
+
 import { startServer } from './server';
+
+console.log('=== SERVER MODULE LOADED ===');
 
 const port = Number(process.env.PORT) || 4000;
 const seedMode = process.env.SEED_MODE || 'reset';
