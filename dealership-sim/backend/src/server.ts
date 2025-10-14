@@ -103,5 +103,6 @@ export const startServer = async ({ port, seedMode }: StartOptions) => {
 
   app.listen(port, '0.0.0.0', () => {
     console.log(`Backend listening on http://0.0.0.0:${port}`);
+    console.log(`Health endpoint available at http://0.0.0.0:${port}/health`);
   });
 };
