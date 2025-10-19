@@ -20,17 +20,40 @@ const reports_1 = __importDefault(require("./routes/reports"));
 const business_1 = __importDefault(require("./routes/business"));
 const upgrades_1 = __importDefault(require("./routes/upgrades"));
 const startServer = async ({ port, seedMode }) => {
+    console.log('=== CREATING EXPRESS APP ===');
     const app = (0, express_1.default)();
     app.use((0, cors_1.default)());
     app.use(express_1.default.json());
+    console.log('=== EXPRESS MIDDLEWARE CONFIGURED ===');
     const savePath = process.env.SAVE_PATH;
     const shouldReset = seedMode === 'reset';
-    let initialState = shouldReset ? null : await (0, save_1.loadStateFromFile)(savePath ?? undefined);
-    if (!initialState) {
+    console.log(`=== INITIALIZING GAME STATE ===`);
+    console.log(`Save path: ${savePath}, Should reset: ${shouldReset}`);
+    let initialState;
+    try {
+        initialState = shouldReset ? null : await (0, save_1.loadStateFromFile)(savePath ?? undefined);
+        if (!initialState) {
+            console.log('=== CREATING SEED STATE ===');
+            initialState = (0, seed_1.createSeedState)();
+        }
+        console.log('=== GAME STATE INITIALIZED ===');
+    }
+    catch (error) {
+        console.error('=== ERROR INITIALIZING GAME STATE ===', error);
+        console.log('=== FALLING BACK TO SEED STATE ===');
         initialState = (0, seed_1.createSeedState)();
     }
-    const repository = new gameRepository_1.GameRepository(initialState);
-    const engine = new loop_1.SimulationEngine(repository, { seed: 1337 });
+    let repository;
+    let engine;
+    try {
+        repository = new gameRepository_1.GameRepository(initialState);
+        engine = new loop_1.SimulationEngine(repository, { seed: 1337 });
+        console.log('=== SIMULATION ENGINE CREATED ===');
+    }
+    catch (error) {
+        console.error('=== ERROR CREATING SIMULATION ENGINE ===', error);
+        throw error;
+    }
     let interval = null;
     const baseTickInterval = Number(process.env.TICK_INTERVAL_MS) || 2000; // 2 seconds per hour at 1x speed
     const schedule = () => {
@@ -51,6 +74,7 @@ const startServer = async ({ port, seedMode }) => {
         }
     };
     schedule();
+    console.log('=== SETTING UP MIDDLEWARE ===');
     app.use((req, res, next) => {
         req.engine = engine;
         req.repository = repository;
@@ -58,6 +82,7 @@ const startServer = async ({ port, seedMode }) => {
         req.savePath = savePath;
         next();
     });
+    console.log('=== SETTING UP ROUTES ===');
     app.use('/api', state_1.default);
     app.use('/api', config_1.default);
     app.use('/api', control_1.default);
@@ -67,6 +92,7 @@ const startServer = async ({ port, seedMode }) => {
     app.use('/api', reports_1.default);
     app.use('/api', business_1.default);
     app.use('/api', upgrades_1.default);
+    console.log('=== ROUTES CONFIGURED ===');
     app.post('/api/save', async (req, res) => {
         const state = engine.getState();
         try {
@@ -90,11 +116,20 @@ const startServer = async ({ port, seedMode }) => {
             res.status(500).json({ error: 'Failed to load game' });
         }
     });
+    console.log('=== SETTING UP HEALTH CHECK ===');
     app.get('/health', (_req, res) => {
+        console.log('Health check requested');
         res.json({ status: 'ok' });
     });
-    app.listen(port, () => {
-        console.log(`Backend listening on http://localhost:${port}`);
+    console.log('=== STARTING SERVER ===');
+    const server = app.listen(port, '0.0.0.0', () => {
+        console.log(`✅ Backend listening on http://0.0.0.0:${port}`);
+        console.log(`✅ Health endpoint available at http://0.0.0.0:${port}/health`);
+        console.log('=== SERVER STARTUP COMPLETE ===');
+    });
+    server.on('error', (error) => {
+        console.error('❌ Server error:', error);
+        process.exit(1);
     });
 };
 exports.startServer = startServer;

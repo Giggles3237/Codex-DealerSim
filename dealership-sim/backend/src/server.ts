@@ -20,18 +20,41 @@ interface StartOptions {
 }
 
 export const startServer = async ({ port, seedMode }: StartOptions) => {
+  console.log('=== CREATING EXPRESS APP ===');
   const app = express();
   app.use(cors());
   app.use(express.json());
+  console.log('=== EXPRESS MIDDLEWARE CONFIGURED ===');
 
   const savePath = process.env.SAVE_PATH;
   const shouldReset = seedMode === 'reset';
-  let initialState = shouldReset ? null : await loadStateFromFile(savePath ?? undefined);
-  if (!initialState) {
+  console.log(`=== INITIALIZING GAME STATE ===`);
+  console.log(`Save path: ${savePath}, Should reset: ${shouldReset}`);
+  
+  let initialState;
+  try {
+    initialState = shouldReset ? null : await loadStateFromFile(savePath ?? undefined);
+    if (!initialState) {
+      console.log('=== CREATING SEED STATE ===');
+      initialState = createSeedState();
+    }
+    console.log('=== GAME STATE INITIALIZED ===');
+  } catch (error) {
+    console.error('=== ERROR INITIALIZING GAME STATE ===', error);
+    console.log('=== FALLING BACK TO SEED STATE ===');
     initialState = createSeedState();
   }
-  const repository = new GameRepository(initialState);
-  const engine = new SimulationEngine(repository, { seed: 1337 });
+  
+  let repository: GameRepository;
+  let engine: SimulationEngine;
+  try {
+    repository = new GameRepository(initialState);
+    engine = new SimulationEngine(repository, { seed: 1337 });
+    console.log('=== SIMULATION ENGINE CREATED ===');
+  } catch (error) {
+    console.error('=== ERROR CREATING SIMULATION ENGINE ===', error);
+    throw error;
+  }
 
   let interval: NodeJS.Timeout | null = null;
   const baseTickInterval = Number(process.env.TICK_INTERVAL_MS) || 2000; // 2 seconds per hour at 1x speed
@@ -56,6 +79,7 @@ export const startServer = async ({ port, seedMode }: StartOptions) => {
 
   schedule();
 
+  console.log('=== SETTING UP MIDDLEWARE ===');
   app.use((req, res, next) => {
     (req as any).engine = engine;
     (req as any).repository = repository;
@@ -64,6 +88,7 @@ export const startServer = async ({ port, seedMode }: StartOptions) => {
     next();
   });
 
+  console.log('=== SETTING UP ROUTES ===');
   app.use('/api', stateRoutes);
   app.use('/api', configRoutes);
   app.use('/api', controlRoutes);
@@ -73,6 +98,7 @@ export const startServer = async ({ port, seedMode }: StartOptions) => {
   app.use('/api', reportsRoutes);
   app.use('/api', businessRoutes);
   app.use('/api', upgradesRoutes);
+  console.log('=== ROUTES CONFIGURED ===');
 
   app.post('/api/save', async (req, res) => {
     const state = engine.getState();
@@ -97,12 +123,21 @@ export const startServer = async ({ port, seedMode }: StartOptions) => {
     }
   });
 
+  console.log('=== SETTING UP HEALTH CHECK ===');
   app.get('/health', (_req, res) => {
+    console.log('Health check requested');
     res.json({ status: 'ok' });
   });
 
-  app.listen(port, '0.0.0.0', () => {
-    console.log(`Backend listening on http://0.0.0.0:${port}`);
-    console.log(`Health endpoint available at http://0.0.0.0:${port}/health`);
+  console.log('=== STARTING SERVER ===');
+  const server = app.listen(port, '0.0.0.0', () => {
+    console.log(`✅ Backend listening on http://0.0.0.0:${port}`);
+    console.log(`✅ Health endpoint available at http://0.0.0.0:${port}/health`);
+    console.log('=== SERVER STARTUP COMPLETE ===');
+  });
+
+  server.on('error', (error) => {
+    console.error('❌ Server error:', error);
+    process.exit(1);
   });
 };

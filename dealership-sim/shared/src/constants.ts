@@ -88,6 +88,30 @@ export const CONFIG_PRESETS: ConfigPreset[] = [
       pricing: { variancePct: 0.07 },
     },
   },
+  {
+    id: 'ultra-slow',
+    name: 'Ultra Slow',
+    description: 'Very slow sales - inventory lasts much longer.',
+    coefficients: {
+      sales: { baseClose: 0.01 },
+      lead: { basePerDay: 15, marketingK: 0.25 },
+      pricing: { variancePct: 0.04 },
+      inventory: { minDaysSupply: 60 },
+      finance: { avgBackGross: 700, backGrossProb: 0.4 },
+    },
+  },
+  {
+    id: 'extreme-slow',
+    name: 'Extreme Slow',
+    description: 'Extremely slow sales - inventory lasts months.',
+    coefficients: {
+      sales: { baseClose: 0.002, desirabilityWeight: 0.2, archetypeWeight: 0.1, economyWeight: 0.1 },
+      lead: { basePerDay: 8, marketingK: 0.15 },
+      pricing: { variancePct: 0.06 },
+      inventory: { minDaysSupply: 90 },
+      finance: { avgBackGross: 500, backGrossProb: 0.3 },
+    },
+  },
 ];
 
 export const DEFAULT_PRICING_STATE = {

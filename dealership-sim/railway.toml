@@ -2,7 +2,7 @@
 builder = "nixpacks"
 
 [deploy]
-startCommand = "echo '=== START COMMAND EXECUTING ===' && pwd && ls -la && echo '=== CHECKING NODE.JS ===' && which node && echo '=== CHECKING FILES ===' && ls -la /app/backend/dist/ && echo '=== STARTING NODE.JS ===' && cd /app && node backend/dist/index.js"
+startCommand = "cd /app && node backend/dist/index.js"
 healthcheckPath = "/health"
 healthcheckTimeout = 300
 restartPolicyType = "on_failure"

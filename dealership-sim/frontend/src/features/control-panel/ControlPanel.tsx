@@ -15,6 +15,42 @@ const ControlPanel = ({ state, health }: Props) => {
   const { updateCoefficients, applyPreset, updateMarketing, resetGame, setSalesGoal } = useGameStore();
   const [salesGoalInput, setSalesGoalInput] = useState(state.salesGoal?.toString() || '120');
 
+  // Function to detect which preset is currently active
+  const getActivePreset = () => {
+    for (const preset of CONFIG_PRESETS) {
+      if (preset.id === 'balanced') {
+        // For balanced preset, check if coefficients match defaults (no overrides)
+        const hasOverrides = Object.keys(preset.coefficients).length === 0;
+        if (hasOverrides) {
+          // Check if current state matches default coefficients
+          const isDefault = 
+            state.coefficients.lead.basePerDay === 10 &&
+            state.coefficients.lead.marketingK === 0.10 &&
+            state.coefficients.sales.baseClose === 0.10 &&
+            state.coefficients.pricing.variancePct === 0.035 &&
+            state.coefficients.inventory.minDaysSupply === 35 &&
+            state.coefficients.finance.avgBackGross === 950 &&
+            state.coefficients.finance.backGrossProb === 0.62;
+          if (isDefault) return preset.id;
+        }
+      } else {
+        // For other presets, check if current coefficients match preset values
+        let matches = true;
+        for (const [group, values] of Object.entries(preset.coefficients)) {
+          for (const [key, value] of Object.entries(values)) {
+            if (state.coefficients[group as keyof typeof state.coefficients][key] !== value) {
+              matches = false;
+              break;
+            }
+          }
+          if (!matches) break;
+        }
+        if (matches) return preset.id;
+      }
+    }
+    return null;
+  };
+
   const handleChange = (group: keyof GameState['coefficients'], key: string) => (event: ChangeEvent<HTMLInputElement>) => {
     const value = Number(event.target.value);
     updateCoefficients({ [group]: { [key]: value } } as any);
@@ -48,17 +84,18 @@ const ControlPanel = ({ state, health }: Props) => {
         </CardHeader>
         <CardContent className="flex flex-wrap gap-2">
           {CONFIG_PRESETS.map((preset) => {
-            // Check if this preset matches current settings (simple check)
-            const isActive = preset.id === 'hard' && 
-              state.coefficients.lead.basePerDay <= 22 && 
-              state.coefficients.sales.baseClose <= 0.035;
+            const isActive = getActivePreset() === preset.id;
             
             return (
               <Button 
                 key={preset.id} 
                 variant={isActive ? "default" : "outline"} 
                 onClick={() => applyPreset(preset.id)}
-                className={isActive ? 'bg-blue-600 hover:bg-blue-700' : ''}
+                className={`w-20 h-10 text-sm font-medium transition-all duration-200 ${
+                  isActive 
+                    ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg scale-105 ring-2 ring-blue-400' 
+                    : 'hover:bg-slate-800 hover:border-slate-600'
+                }`}
               >
                 {preset.name}
               </Button>
