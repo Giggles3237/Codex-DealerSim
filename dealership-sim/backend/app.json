@@ -1,0 +1,44 @@
+{
+  "name": "Dealership Simulator Backend",
+  "description": "Backend API for Dealership Simulator game",
+  "repository": "https://github.com/yourusername/Codex-DealerSim",
+  "logo": "https://node-js-sample.herokuapp.com/node.png",
+  "keywords": ["node", "express", "game", "simulator"],
+  "buildpacks": [
+    {
+      "url": "heroku/nodejs"
+    }
+  ],
+  "formation": {
+    "web": {
+      "quantity": 1,
+      "size": "basic"
+    }
+  },
+  "env": {
+    "NODE_ENV": {
+      "required": true,
+      "value": "production"
+    },
+    "PORT": {
+      "required": true,
+      "value": "8080"
+    },
+    "SAVE_PATH": {
+      "required": false,
+      "value": "/tmp/save.json"
+    },
+    "TICK_INTERVAL_MS": {
+      "required": false,
+      "value": "2000"
+    },
+    "SEED_MODE": {
+      "required": false,
+      "value": "reset"
+    }
+  },
+  "scripts": {
+    "postdeploy": "echo 'Deployment complete'"
+  }
+}
+
