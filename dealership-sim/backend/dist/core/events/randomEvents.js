@@ -1,7 +1,4 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.applyRandomEvents = void 0;
-const applyRandomEvents = (state, rng) => {
+export const applyRandomEvents = (state, rng) => {
     const notifications = [];
     const economy = { ...state.economy };
     const roll = rng.nextFloat();
@@ -27,4 +24,3 @@ const applyRandomEvents = (state, rng) => {
     economy.incentiveLevel = Math.max(0, Math.min(1.5, economy.incentiveLevel));
     return { notifications, economy };
 };
-exports.applyRandomEvents = applyRandomEvents;

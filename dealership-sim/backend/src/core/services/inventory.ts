@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import { Coefficients, Vehicle, PricingPolicy, PricingState, PRICING_POLICY_MULTIPLIERS } from '@dealership/shared';
 import { RNG } from '../../utils/random';
 import { clamp } from '../../utils/math';
+import { getRandomVehicleForSegment, getYearPriceMultiplier } from '../data/vehicles';
 
 const SEGMENT_BASE_DEMAND: Record<Vehicle['segment'], number> = {
   luxury: 0.9,
@@ -106,11 +107,35 @@ export const createVehicle = (
   const holdbackPct = coefficients.pricing.holdbackPct;
   const pack = coefficients.pricing.pack;
   const recon = Math.max(200, coefficients.pricing.reconMean * (0.8 + rng.nextFloat() * 0.4));
-  const baseAsking = Math.round(baseCost * (1.18 + rng.nextFloat() * 0.08) / 100) * 100;
   
   const segment = overrides.segment ?? 'sedan';
   const desirability = overrides.desirability ?? clamp(55 + rng.nextFloat() * 30, 30, 100);
   const ageDays = overrides.ageDays ?? 0;
+  
+  // Get a realistic vehicle from the database
+  let vehicleData;
+  if (overrides.make && overrides.model && overrides.year) {
+    // Use provided make/model/year
+    vehicleData = {
+      make: overrides.make,
+      model: overrides.model,
+      year: overrides.year,
+      basePriceRange: [20, 40] as [number, number],
+      typicalSegment: segment,
+    };
+  } else {
+    // Generate a random vehicle for the segment
+    vehicleData = getRandomVehicleForSegment(segment, rng);
+  }
+  
+  // Cost basis is what you paid at auction (no depreciation)
+  const roundedCost = Math.round(baseCost / 100) * 100;
+  
+  // Apply depreciation to the asking price based on vehicle year
+  const yearMultiplier = getYearPriceMultiplier(vehicleData.year);
+  const marketValue = baseCost * yearMultiplier;
+  
+  const baseAsking = Math.round(marketValue * (1.18 + rng.nextFloat() * 0.08) / 100) * 100;
   
   // Apply pricing policy if provided
   let asking = baseAsking;
@@ -119,15 +144,14 @@ export const createVehicle = (
     asking = Math.round(applyPricingPolicy(baseAsking, policy, desirability, ageDays, pricingState.agingDiscounts) / 100) * 100;
   }
   
-  const roundedCost = Math.round(baseCost / 100) * 100;
   const floor = baseCost * 1.02; // Keep floor precise for interest calculations
   
   return {
     id: randomUUID(),
     stockNumber: `STK-${Math.floor(rng.nextFloat() * 90000 + 10000)}`,
-    year: overrides.year ?? 2024,
-    make: overrides.make ?? 'Bimmer',
-    model: overrides.model ?? 'Series',
+    year: vehicleData.year,
+    make: vehicleData.make,
+    model: vehicleData.model,
     segment,
     cost: roundedCost,
     floor: floor,
@@ -176,7 +200,8 @@ export const acquirePack = (
       baseCost,
       pricingState,
     );
-    totalCost += baseCost + vehicle.reconCost + vehicle.pack;
+    // Only count base cost and pack at acquisition - recon happens when vehicles arrive
+    totalCost += baseCost + vehicle.pack;
     vehicles.push(vehicle);
   }
   return { vehicles, cost: Math.round(totalCost / 100) * 100 };

@@ -1,7 +1,4 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.CUSTOMER_ARCHETYPES = exports.TECH_ARCHETYPES = exports.ADVISOR_ARCHETYPES = void 0;
-exports.ADVISOR_ARCHETYPES = [
+export const ADVISOR_ARCHETYPES = [
     {
         id: 'closer',
         name: 'Closer',
@@ -63,7 +60,7 @@ exports.ADVISOR_ARCHETYPES = [
         modifiers: { close: -0.08, gross: -0.06, csi: -0.08, speed: -0.12, bevAffinity: -0.05, backGross: -0.06 },
     },
 ];
-exports.TECH_ARCHETYPES = [
+export const TECH_ARCHETYPES = [
     {
         id: 'master-tech',
         name: 'Master Tech',
@@ -113,7 +110,7 @@ exports.TECH_ARCHETYPES = [
         modifiers: { efficiency: -0.05, comebackRate: -0.08, moraleSensitivity: 0.05, bevCapture: 0 },
     },
 ];
-exports.CUSTOMER_ARCHETYPES = [
+export const CUSTOMER_ARCHETYPES = [
     {
         id: 'tire-kicker',
         name: 'Tire-Kicker',

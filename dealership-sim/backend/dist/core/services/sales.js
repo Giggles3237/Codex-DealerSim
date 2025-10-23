@@ -1,18 +1,15 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.__testing = exports.simulateSalesDay = exports.simulateSalesHour = exports.computeLeadVolume = void 0;
-const math_1 = require("../../utils/math");
-const archetypes_1 = require("../balance/archetypes");
+import { diminishingReturns, clamp, sigmoid } from '../../utils/math';
+import { CUSTOMER_ARCHETYPES, ADVISOR_ARCHETYPES } from '../balance/archetypes';
 const BASE_COST_PER_LEAD = 8;
 const createCustomer = (rng) => {
-    const archetype = rng.pick(archetypes_1.CUSTOMER_ARCHETYPES);
+    const archetype = rng.pick(CUSTOMER_ARCHETYPES);
     return {
         id: `cust-${Date.now()}-${rng.nextFloat()}`,
         type: archetype.name,
         channel: rng.pick(['walk-in', 'web', 'phone', 'referral']),
-        priceSensitivity: (0, math_1.clamp)(0.3 + archetype.modifiers.priceSensitivity, 0, 1),
-        paymentFocus: (0, math_1.clamp)(0.3 + rng.nextFloat() * 0.4, 0, 1),
-        loyalty: (0, math_1.clamp)(0.2 + archetype.modifiers.loyalty, 0, 1),
+        priceSensitivity: clamp(0.3 + archetype.modifiers.priceSensitivity, 0, 1),
+        paymentFocus: clamp(0.3 + rng.nextFloat() * 0.4, 0, 1),
+        loyalty: clamp(0.2 + archetype.modifiers.loyalty, 0, 1),
         closeBias: archetype.modifiers.closeBias,
         grossBias: archetype.modifiers.grossBias,
         csiBias: archetype.modifiers.csiBias,
@@ -20,23 +17,22 @@ const createCustomer = (rng) => {
     };
 };
 const advisorArchetypeModifier = (advisor) => {
-    const found = archetypes_1.ADVISOR_ARCHETYPES.find((arch) => arch.id === advisor.archetype);
+    const found = ADVISOR_ARCHETYPES.find((arch) => arch.id === advisor.archetype);
     return found ? found.modifiers.close : 0;
 };
 const advisorBackModifier = (advisor) => {
-    const found = archetypes_1.ADVISOR_ARCHETYPES.find((arch) => arch.id === advisor.archetype);
+    const found = ADVISOR_ARCHETYPES.find((arch) => arch.id === advisor.archetype);
     return found ? found.modifiers.backGross : 0;
 };
 const advisorMoraleEffect = (advisor) => {
     return (advisor.morale - 50) / 200;
 };
-const computeLeadVolume = (marketing, economy, coefficients) => {
-    const marketingBoost = 1 + coefficients.lead.marketingK * (0, math_1.diminishingReturns)(marketing.spendPerDay / BASE_COST_PER_LEAD, coefficients.lead.diminishingK);
+export const computeLeadVolume = (marketing, economy, coefficients) => {
+    const marketingBoost = 1 + coefficients.lead.marketingK * diminishingReturns(marketing.spendPerDay / BASE_COST_PER_LEAD, coefficients.lead.diminishingK);
     const weatherPenalty = 0.6 + economy.weatherFactor * 0.4;
     const incentivesBoost = 1 + economy.incentiveLevel * 0.4;
     return coefficients.lead.basePerDay * economy.demandIndex * marketingBoost * weatherPenalty * incentivesBoost;
 };
-exports.computeLeadVolume = computeLeadVolume;
 const pickAdvisor = (advisors, rng) => {
     const active = advisors.filter((advisor) => advisor.active);
     if (!active.length) {
@@ -64,7 +60,7 @@ const computeClosingProbability = (advisor, customer, vehicle, economy, coeffici
         coefficients.sales.priceGapWeight * priceFit +
         customerClose +
         economyFactor;
-    return (0, math_1.clamp)((0, math_1.sigmoid)(raw), 0.05, 0.95);
+    return clamp(sigmoid(raw), 0.05, 0.95);
 };
 const computeSoldPrice = (vehicle, coefficients, rng, customer, economy) => {
     const variance = (rng.nextFloat() * 2 - 1) * coefficients.pricing.variancePct;
@@ -81,12 +77,12 @@ const computeFrontGross = (vehicle, soldPrice, coefficients) => {
 const computeBackGross = (advisor, coefficients, rng, economy) => {
     const baseProb = coefficients.finance.backGrossProb + advisorBackModifier(advisor);
     const interestPenalty = (economy.interestRate - 5) / 10;
-    const finalProb = (0, math_1.clamp)(baseProb - interestPenalty, 0.1, 0.9);
+    const finalProb = clamp(baseProb - interestPenalty, 0.1, 0.9);
     return rng.nextFloat() < finalProb
         ? coefficients.finance.avgBackGross * (1 + (advisor.skill.gross - 50) / 100)
         : 0;
 };
-const simulateSalesHour = (advisors, inventory, marketing, economy, coefficients, rng, hour) => {
+export const simulateSalesHour = (advisors, inventory, marketing, economy, coefficients, rng, hour) => {
     // Distribute daily activity across 12 business hours (9 AM - 9 PM)
     // More activity during peak hours (10 AM - 2 PM, 5 PM - 8 PM)
     let hourMultiplier = 1.0;
@@ -99,7 +95,7 @@ const simulateSalesHour = (advisors, inventory, marketing, economy, coefficients
     else if (hour === 9 || hour === 21) {
         hourMultiplier = 0.6; // Opening/closing hours are slower
     }
-    const dailyLeads = (0, exports.computeLeadVolume)(marketing, economy, coefficients);
+    const dailyLeads = computeLeadVolume(marketing, economy, coefficients);
     const leads = Math.max(0, Math.round((dailyLeads / 12) * hourMultiplier));
     const appointments = Math.max(0, Math.round(leads * (0.45 + economy.demandIndex * 0.15)));
     const dealsWorked = Math.max(0, Math.round(appointments * 0.6));
@@ -215,16 +211,15 @@ const simulateSalesHour = (advisors, inventory, marketing, economy, coefficients
         leadsGenerated: leads,
         appointments,
         dealsWorked,
-        cashDelta: cashDelta, // Just the sales revenue for this hour
+        cashDelta: cashDelta, // Sales revenue (sale price goes back to cash)
         csiDelta,
         moraleDelta,
         customers,
         leadActivity,
     };
 };
-exports.simulateSalesHour = simulateSalesHour;
 // For backwards compatibility and testing
-const simulateSalesDay = (advisors, inventory, marketing, economy, coefficients, rng) => {
+export const simulateSalesDay = (advisors, inventory, marketing, economy, coefficients, rng) => {
     // Simulate all 12 hours at once
     let aggregatedResult = {
         deals: [],
@@ -240,7 +235,7 @@ const simulateSalesDay = (advisors, inventory, marketing, economy, coefficients,
         leadActivity: [],
     };
     for (let hour = 9; hour <= 21; hour++) {
-        const hourResult = (0, exports.simulateSalesHour)(advisors, aggregatedResult.remainingInventory, marketing, economy, coefficients, rng, hour);
+        const hourResult = simulateSalesHour(advisors, aggregatedResult.remainingInventory, marketing, economy, coefficients, rng, hour);
         aggregatedResult.deals.push(...hourResult.deals);
         aggregatedResult.soldVehicles.push(...hourResult.soldVehicles);
         aggregatedResult.remainingInventory = hourResult.remainingInventory;
@@ -255,8 +250,7 @@ const simulateSalesDay = (advisors, inventory, marketing, economy, coefficients,
     }
     return aggregatedResult;
 };
-exports.simulateSalesDay = simulateSalesDay;
-exports.__testing = {
+export const __testing = {
     computeClosingProbability,
     computeSoldPrice,
 };

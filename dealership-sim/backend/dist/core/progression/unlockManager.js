@@ -1,11 +1,8 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.runProgressionCheck = exports.purchaseUpgrade = exports.initializeAchievements = exports.evaluateAchievements = exports.evaluateUpgrades = exports.checkAchievementCompletion = exports.checkUpgradeRequirements = void 0;
-const unlockDefinitions_1 = require("./unlockDefinitions");
+import { UPGRADE_DEFINITIONS, ACHIEVEMENT_DEFINITIONS } from './unlockDefinitions';
 /**
  * Check if upgrade requirements are met
  */
-function checkUpgradeRequirements(state, requirements) {
+export function checkUpgradeRequirements(state, requirements) {
     if (requirements.revenue !== undefined && state.totalRevenue < requirements.revenue) {
         return false;
     }
@@ -40,11 +37,10 @@ function checkUpgradeRequirements(state, requirements) {
     }
     return true;
 }
-exports.checkUpgradeRequirements = checkUpgradeRequirements;
 /**
  * Check if an achievement should be completed
  */
-function checkAchievementCompletion(state, achievement) {
+export function checkAchievementCompletion(state, achievement) {
     switch (achievement.requirements.type) {
         case 'revenue':
             return state.totalRevenue >= achievement.requirements.value;
@@ -60,14 +56,13 @@ function checkAchievementCompletion(state, achievement) {
             return false;
     }
 }
-exports.checkAchievementCompletion = checkAchievementCompletion;
 /**
  * Evaluate all upgrades and return newly unlocked ones
  * This should be called each day
  */
-function evaluateUpgrades(state) {
+export function evaluateUpgrades(state) {
     const newlyUnlocked = [];
-    for (const definition of unlockDefinitions_1.UPGRADE_DEFINITIONS) {
+    for (const definition of UPGRADE_DEFINITIONS) {
         // Skip if already in available upgrades
         const existingUpgrade = state.availableUpgrades.find(u => u.id === definition.id);
         if (existingUpgrade) {
@@ -88,14 +83,13 @@ function evaluateUpgrades(state) {
     }
     return newlyUnlocked;
 }
-exports.evaluateUpgrades = evaluateUpgrades;
 /**
  * Evaluate all achievements and return newly completed ones
  */
-function evaluateAchievements(state) {
+export function evaluateAchievements(state) {
     const newlyCompleted = [];
     const now = new Date().toISOString();
-    for (const definition of unlockDefinitions_1.ACHIEVEMENT_DEFINITIONS) {
+    for (const definition of ACHIEVEMENT_DEFINITIONS) {
         // Find existing achievement
         const existing = state.achievements.find(a => a.id === definition.id);
         // Skip if already completed
@@ -117,21 +111,19 @@ function evaluateAchievements(state) {
     }
     return newlyCompleted;
 }
-exports.evaluateAchievements = evaluateAchievements;
 /**
  * Initialize achievements for a new game
  */
-function initializeAchievements() {
-    return unlockDefinitions_1.ACHIEVEMENT_DEFINITIONS.map(def => ({
+export function initializeAchievements() {
+    return ACHIEVEMENT_DEFINITIONS.map(def => ({
         ...def,
         completed: false,
     }));
 }
-exports.initializeAchievements = initializeAchievements;
 /**
  * Purchase an upgrade and apply its effects to the state
  */
-function purchaseUpgrade(state, upgradeId) {
+export function purchaseUpgrade(state, upgradeId) {
     const upgrade = state.availableUpgrades.find(u => u.id === upgradeId);
     if (!upgrade) {
         throw new Error(`Upgrade ${upgradeId} not found in available upgrades`);
@@ -153,12 +145,11 @@ function purchaseUpgrade(state, upgradeId) {
     // The actual enforcement happens in featureFlags.ts
     return nextState;
 }
-exports.purchaseUpgrade = purchaseUpgrade;
 /**
  * Run full progression check (upgrades + achievements)
  * Returns notifications for new unlocks/achievements
  */
-function runProgressionCheck(state) {
+export function runProgressionCheck(state) {
     const notifications = [];
     let nextState = { ...state };
     // Check for day-based unlocks
@@ -193,4 +184,3 @@ function runProgressionCheck(state) {
     }
     return { state: nextState, notifications };
 }
-exports.runProgressionCheck = runProgressionCheck;

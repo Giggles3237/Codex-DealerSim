@@ -1,29 +1,23 @@
-"use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.startServer = void 0;
-const express_1 = __importDefault(require("express"));
-const cors_1 = __importDefault(require("cors"));
-const gameRepository_1 = require("./core/repository/gameRepository");
-const loop_1 = require("./core/engine/loop");
-const seed_1 = require("./data/seed");
-const save_1 = require("./utils/save");
-const state_1 = __importDefault(require("./routes/state"));
-const config_1 = __importDefault(require("./routes/config"));
-const control_1 = __importDefault(require("./routes/control"));
-const staff_1 = __importDefault(require("./routes/staff"));
-const inventory_1 = __importDefault(require("./routes/inventory"));
-const marketing_1 = __importDefault(require("./routes/marketing"));
-const reports_1 = __importDefault(require("./routes/reports"));
-const business_1 = __importDefault(require("./routes/business"));
-const upgrades_1 = __importDefault(require("./routes/upgrades"));
-const startServer = async ({ port, seedMode }) => {
+import express from 'express';
+import cors from 'cors';
+import { GameRepository } from './core/repository/gameRepository';
+import { SimulationEngine } from './core/engine/loop';
+import { createSeedState } from './data/seed';
+import { loadStateFromFile, saveStateToFile } from './utils/save';
+import stateRoutes from './routes/state';
+import configRoutes from './routes/config';
+import controlRoutes from './routes/control';
+import staffRoutes from './routes/staff';
+import inventoryRoutes from './routes/inventory';
+import marketingRoutes from './routes/marketing';
+import reportsRoutes from './routes/reports';
+import businessRoutes from './routes/business';
+import upgradesRoutes from './routes/upgrades';
+export const startServer = async ({ port, seedMode }) => {
     console.log('=== CREATING EXPRESS APP ===');
-    const app = (0, express_1.default)();
-    app.use((0, cors_1.default)());
-    app.use(express_1.default.json());
+    const app = express();
+    app.use(cors());
+    app.use(express.json());
     console.log('=== EXPRESS MIDDLEWARE CONFIGURED ===');
     const savePath = process.env.SAVE_PATH;
     const shouldReset = seedMode === 'reset';
@@ -31,23 +25,23 @@ const startServer = async ({ port, seedMode }) => {
     console.log(`Save path: ${savePath}, Should reset: ${shouldReset}`);
     let initialState;
     try {
-        initialState = shouldReset ? null : await (0, save_1.loadStateFromFile)(savePath ?? undefined);
+        initialState = shouldReset ? null : await loadStateFromFile(savePath ?? undefined);
         if (!initialState) {
             console.log('=== CREATING SEED STATE ===');
-            initialState = (0, seed_1.createSeedState)();
+            initialState = createSeedState();
         }
         console.log('=== GAME STATE INITIALIZED ===');
     }
     catch (error) {
         console.error('=== ERROR INITIALIZING GAME STATE ===', error);
         console.log('=== FALLING BACK TO SEED STATE ===');
-        initialState = (0, seed_1.createSeedState)();
+        initialState = createSeedState();
     }
     let repository;
     let engine;
     try {
-        repository = new gameRepository_1.GameRepository(initialState);
-        engine = new loop_1.SimulationEngine(repository, { seed: 1337 });
+        repository = new GameRepository(initialState);
+        engine = new SimulationEngine(repository, { seed: 1337 });
         console.log('=== SIMULATION ENGINE CREATED ===');
     }
     catch (error) {
@@ -68,7 +62,7 @@ const startServer = async ({ port, seedMode }) => {
             interval = setInterval(() => {
                 const updated = engine.tick(1); // Advance 1 hour per tick
                 if (savePath) {
-                    (0, save_1.saveStateToFile)(updated, savePath).catch((error) => console.error('Failed to save state', error));
+                    saveStateToFile(updated, savePath).catch((error) => console.error('Failed to save state', error));
                 }
             }, tickInterval);
         }
@@ -83,20 +77,20 @@ const startServer = async ({ port, seedMode }) => {
         next();
     });
     console.log('=== SETTING UP ROUTES ===');
-    app.use('/api', state_1.default);
-    app.use('/api', config_1.default);
-    app.use('/api', control_1.default);
-    app.use('/api', staff_1.default);
-    app.use('/api', inventory_1.default);
-    app.use('/api', marketing_1.default);
-    app.use('/api', reports_1.default);
-    app.use('/api', business_1.default);
-    app.use('/api', upgrades_1.default);
+    app.use('/api', stateRoutes);
+    app.use('/api', configRoutes);
+    app.use('/api', controlRoutes);
+    app.use('/api', staffRoutes);
+    app.use('/api', inventoryRoutes);
+    app.use('/api', marketingRoutes);
+    app.use('/api', reportsRoutes);
+    app.use('/api', businessRoutes);
+    app.use('/api', upgradesRoutes);
     console.log('=== ROUTES CONFIGURED ===');
     app.post('/api/save', async (req, res) => {
         const state = engine.getState();
         try {
-            await (0, save_1.saveStateToFile)(state, savePath ?? undefined);
+            await saveStateToFile(state, savePath ?? undefined);
             res.json({ success: true });
         }
         catch (error) {
@@ -105,7 +99,7 @@ const startServer = async ({ port, seedMode }) => {
     });
     app.post('/api/load', async (req, res) => {
         try {
-            const loaded = await (0, save_1.loadStateFromFile)(savePath ?? undefined);
+            const loaded = await loadStateFromFile(savePath ?? undefined);
             if (!loaded) {
                 return res.status(404).json({ error: 'No save game found' });
             }
@@ -132,4 +126,3 @@ const startServer = async ({ port, seedMode }) => {
         process.exit(1);
     });
 };
-exports.startServer = startServer;

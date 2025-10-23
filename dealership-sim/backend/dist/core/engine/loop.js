@@ -1,14 +1,11 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.SimulationEngine = void 0;
-const shared_1 = require("@dealership/shared");
-const random_1 = require("../../utils/random");
-const inventory_1 = require("../services/inventory");
-const sales_1 = require("../services/sales");
-const service_1 = require("../services/service");
-const randomEvents_1 = require("../events/randomEvents");
-const math_1 = require("../../utils/math");
-const unlockManager_1 = require("../progression/unlockManager");
+import { OPERATING_EXPENSES } from '@dealership/shared';
+import { RNG } from '../../utils/random';
+import { ageInventory } from '../services/inventory';
+import { simulateSalesHour } from '../services/sales';
+import { runServiceDepartment } from '../services/service';
+import { applyRandomEvents } from '../events/randomEvents';
+import { clamp } from '../../utils/math';
+import { runProgressionCheck } from '../progression/unlockManager';
 const DAYS_PER_MONTH = 30;
 /**
  * Calculate daily operating expenses including salaries, facility costs, and overhead
@@ -17,12 +14,12 @@ function calculateOperatingExpenses(state) {
     const advisorCount = state.advisors.filter(a => a.active).length;
     const technicianCount = state.technicians.filter(t => t.active).length;
     const inventorySlots = state.inventory.filter(v => v.status === 'inStock').length;
-    const salaries = (advisorCount * shared_1.OPERATING_EXPENSES.advisorSalaryPerDay) +
-        (technicianCount * shared_1.OPERATING_EXPENSES.technicianSalaryPerDay) +
-        (state.salesManager ? shared_1.OPERATING_EXPENSES.salesManagerSalaryPerDay : 0);
-    const facilityCosts = shared_1.OPERATING_EXPENSES.facilityBaseCost +
-        (inventorySlots * shared_1.OPERATING_EXPENSES.facilityPerSlot);
-    const overhead = shared_1.OPERATING_EXPENSES.overheadBase;
+    const salaries = (advisorCount * OPERATING_EXPENSES.advisorSalaryPerDay) +
+        (technicianCount * OPERATING_EXPENSES.technicianSalaryPerDay) +
+        (state.salesManager ? OPERATING_EXPENSES.salesManagerSalaryPerDay : 0);
+    const facilityCosts = OPERATING_EXPENSES.facilityBaseCost +
+        (inventorySlots * OPERATING_EXPENSES.facilityPerSlot);
+    const overhead = OPERATING_EXPENSES.overheadBase;
     return salaries + facilityCosts + overhead;
 }
 /**
@@ -32,13 +29,13 @@ function calculateOperatingExpenses(state) {
 function calculateFloorPlanInterest(state) {
     const inStockVehicles = state.inventory.filter(v => v.status === 'inStock');
     const totalFloorValue = inStockVehicles.reduce((sum, vehicle) => sum + vehicle.floor, 0);
-    return totalFloorValue * shared_1.OPERATING_EXPENSES.floorPlanInterestRate;
+    return totalFloorValue * OPERATING_EXPENSES.floorPlanInterestRate;
 }
-class SimulationEngine {
+export class SimulationEngine {
     constructor(repository, options = {}) {
         this.repository = repository;
         this.options = options;
-        this.rng = new random_1.RNG(options.seed);
+        this.rng = new RNG(options.seed);
     }
     getState() {
         return this.repository.getState();
@@ -84,15 +81,22 @@ class SimulationEngine {
         };
         // Deliver pending inventory at noon (hour 12)
         if (nextState.hour === 12) {
+            let reconCostTotal = 0;
             nextState.inventory = nextState.inventory.map(vehicle => {
                 if (vehicle.status === 'pending') {
+                    reconCostTotal += vehicle.reconCost;
                     return { ...vehicle, status: 'inStock' };
                 }
                 return vehicle;
             });
+            // Deduct recon costs when vehicles arrive
+            if (reconCostTotal > 0) {
+                nextState.cash = Math.round(nextState.cash - reconCostTotal);
+                nextState.todayCashDelta = (nextState.todayCashDelta || 0) - reconCostTotal;
+            }
             const pendingDelivered = nextState.inventory.filter(v => v.status === 'inStock' && v.ageDays === 0).length;
             if (pendingDelivered > 0) {
-                nextState.notifications.push(`${pendingDelivered} vehicles arrived from auction.`);
+                nextState.notifications.push(`${pendingDelivered} vehicles arrived from auction. Recon cost: $${reconCostTotal.toLocaleString()}`);
             }
         }
         // If we've reached end of business day (9 PM = hour 21), pause and wait for player to close out
@@ -106,7 +110,7 @@ class SimulationEngine {
         // During business hours, process sales and service activity
         const currentInventory = nextState.inventory.filter(v => v.status === 'inStock');
         // Run hourly sales
-        const sales = (0, sales_1.simulateSalesHour)(nextState.advisors, currentInventory, nextState.marketing, nextState.economy, nextState.coefficients, this.rng, nextState.hour);
+        const sales = simulateSalesHour(nextState.advisors, currentInventory, nextState.marketing, nextState.economy, nextState.coefficients, this.rng, nextState.hour);
         // Update inventory with sold vehicles
         const soldIds = new Set(sales.soldVehicles.map(v => v.id));
         nextState.inventory = nextState.inventory
@@ -139,7 +143,7 @@ class SimulationEngine {
         const hourlyServiceDemand = Math.round((nextState.coefficients.service.baseDemand * 0.5 +
             soldCount * 0.8 +
             nextState.inventory.length * 0.05) / 12);
-        const serviceResult = (0, service_1.runServiceDepartment)(nextState.technicians, nextState.serviceQueue, hourlyServiceDemand, this.rng);
+        const serviceResult = runServiceDepartment(nextState.technicians, nextState.serviceQueue, hourlyServiceDemand, this.rng);
         nextState.completedROs = [...serviceResult.completed, ...nextState.completedROs].slice(0, 50);
         nextState.serviceQueue = serviceResult.queue;
         // Accumulate service results
@@ -203,22 +207,22 @@ class SimulationEngine {
         const drift = (this.rng.nextFloat() - 0.5) * state.coefficients.economy.volatility;
         nextState.economy = {
             ...nextState.economy,
-            demandIndex: (0, math_1.clamp)(nextState.economy.demandIndex + drift, 0.4, 2),
-            interestRate: (0, math_1.clamp)(nextState.economy.interestRate + (this.rng.nextFloat() - 0.5) * state.coefficients.economy.interestRateBand, 1.5, 12),
-            incentiveLevel: (0, math_1.clamp)(nextState.economy.incentiveLevel * (0.96 + this.rng.nextFloat() * 0.08), 0, 1.5),
+            demandIndex: clamp(nextState.economy.demandIndex + drift, 0.4, 2),
+            interestRate: clamp(nextState.economy.interestRate + (this.rng.nextFloat() - 0.5) * state.coefficients.economy.interestRateBand, 1.5, 12),
+            incentiveLevel: clamp(nextState.economy.incentiveLevel * (0.96 + this.rng.nextFloat() * 0.08), 0, 1.5),
         };
-        const randomEvent = (0, randomEvents_1.applyRandomEvents)(nextState, this.rng);
+        const randomEvent = applyRandomEvents(nextState, this.rng);
         nextState.economy = randomEvent.economy;
         nextState.notifications = [...nextState.notifications, ...randomEvent.notifications];
         // age inventory (happens at end of day)
-        const agedInventory = (0, inventory_1.ageInventory)(nextState.inventory, nextState.economy.demandIndex);
+        const agedInventory = ageInventory(nextState.inventory, nextState.economy.demandIndex);
         nextState.inventory = agedInventory;
         // update advisors morale based on today's performance
         const todayMoraleDelta = state.todayMoraleDelta || 0;
         nextState.advisors = nextState.advisors.map((advisor) => {
             const moraleAdjustment = todayMoraleDelta / Math.max(nextState.advisors.length, 1);
             const trainingBoost = advisor.trained.length * (state.coefficients.morale.trainingEffect / 100);
-            const morale = (0, math_1.clamp)(advisor.morale + moraleAdjustment * 5 + trainingBoost, 20, 100);
+            const morale = clamp(advisor.morale + moraleAdjustment * 5 + trainingBoost, 20, 100);
             return { ...advisor, morale };
         });
         const trailingSales = Math.max(1, soldCount);
@@ -246,8 +250,8 @@ class SimulationEngine {
         nextState.lifetimeSales += soldVehicles.length;
         // update CSI and morale index based on today's activity
         const todayCsiDelta = state.todayCsiDelta || 0;
-        nextState.csi = (0, math_1.clamp)(nextState.csi + todayCsiDelta / 50, 10, 100);
-        nextState.moraleIndex = (0, math_1.clamp)(nextState.advisors.reduce((acc, advisor) => acc + advisor.morale, 0) / Math.max(nextState.advisors.length, 1), 0, 100);
+        nextState.csi = clamp(nextState.csi + todayCsiDelta / 50, 10, 100);
+        nextState.moraleIndex = clamp(nextState.advisors.reduce((acc, advisor) => acc + advisor.morale, 0) / Math.max(nextState.advisors.length, 1), 0, 100);
         // Deals and lead activity were already added throughout the day
         // reporting
         const gameDate = `${nextState.year}-${String(nextState.month).padStart(2, '0')}-${String(nextState.day).padStart(2, '0')}`;
@@ -318,7 +322,7 @@ class SimulationEngine {
         const dailySummary = this.createDailySummary(nextState, soldCount, deals, totalServiceHours, totalServiceParts, totalServiceROs, serviceGross, operatingExpenses, floorPlanInterest, startingCash, startingInventory);
         nextState.notifications.push(dailySummary);
         // Check for progression unlocks and achievements (shown after daily summary)
-        const progressionResult = (0, unlockManager_1.runProgressionCheck)(nextState);
+        const progressionResult = runProgressionCheck(nextState);
         nextState = progressionResult.state;
         nextState.notifications.push(...progressionResult.notifications);
         // Keep paused after closeout so player can see summary
@@ -377,4 +381,3 @@ class SimulationEngine {
         return summary;
     }
 }
-exports.SimulationEngine = SimulationEngine;

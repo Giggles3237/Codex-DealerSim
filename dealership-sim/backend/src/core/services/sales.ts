@@ -296,7 +296,7 @@ export const simulateSalesHour = (
     leadsGenerated: leads,
     appointments,
     dealsWorked,
-    cashDelta: cashDelta, // Just the sales revenue for this hour
+    cashDelta: cashDelta, // Sales revenue (sale price goes back to cash)
     csiDelta,
     moraleDelta,
     customers,

@@ -1,4 +1,4 @@
-import { GameState, Upgrade } from '@dealership/shared';
+import { GameState, Upgrade, OPERATING_EXPENSES } from '@dealership/shared';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
@@ -139,7 +139,7 @@ const UpgradeCard = ({ upgrade, canAfford, onPurchase }: {
 };
 
 const UpgradeShop = ({ state }: Props) => {
-  const { purchaseUpgrade } = useGameStore();
+  const { purchaseUpgrade, hireManager } = useGameStore();
   
   // Filter and sort upgrades
   const availableUpgrades = (state.availableUpgrades || [])
@@ -165,7 +165,7 @@ const UpgradeShop = ({ state }: Props) => {
     purchaseUpgrade(upgradeId);
   };
   
-  if (availableUpgrades.length === 0) {
+  if (availableUpgrades.length === 0 && state.salesManager) {
     return (
       <Card className="border-slate-700">
         <CardHeader>
@@ -198,6 +198,79 @@ const UpgradeShop = ({ state }: Props) => {
           </CardDescription>
         </CardHeader>
       </Card>
+      
+      {/* Hire Sales Manager Card */}
+      {!state.salesManager && (
+        <Card className="border-amber-500/30 bg-gradient-to-r from-amber-950/30 to-slate-900/30">
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <span>🎯 Hire a Sales Manager</span>
+              <Badge variant="default" className="bg-amber-600 text-lg px-4 py-2">
+                Unlock Auto-Advance
+              </Badge>
+            </CardTitle>
+            <CardDescription>
+              Hiring a Sales Manager enables auto-advance functionality, allowing the game to run automatically 
+              without clicking "Advance 1 Day" manually.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="p-4 rounded-lg border border-slate-700 bg-slate-900/70">
+                <p className="text-xs text-slate-400">One-time Cost</p>
+                <p className="mt-1 text-2xl font-bold text-amber-400">${OPERATING_EXPENSES.salesManagerHireCost.toLocaleString()}</p>
+              </div>
+              <div className="p-4 rounded-lg border border-slate-700 bg-slate-900/70">
+                <p className="text-xs text-slate-400">Daily Salary</p>
+                <p className="mt-1 text-2xl font-bold text-red-400">${OPERATING_EXPENSES.salesManagerSalaryPerDay.toLocaleString()}/day</p>
+                <p className="text-xs text-slate-500 mt-1">(~${(OPERATING_EXPENSES.salesManagerSalaryPerDay * 365).toLocaleString()}/year)</p>
+              </div>
+            </div>
+            
+            <div className="p-3 rounded-lg bg-blue-950/30 border border-blue-500/30">
+              <p className="text-sm text-blue-300">✨ Benefits:</p>
+              <ul className="mt-2 space-y-1 text-xs text-slate-300 list-disc list-inside">
+                <li>Boost productivity and unlock management features</li>
+                <li>Higher closing rates and better gross profit</li>
+                <li>Professional leadership for your team</li>
+              </ul>
+            </div>
+            
+            <Button 
+              onClick={hireManager}
+              disabled={state.cash < OPERATING_EXPENSES.salesManagerHireCost}
+              className="w-full"
+              variant={state.cash >= OPERATING_EXPENSES.salesManagerHireCost ? "default" : "outline"}
+            >
+              {state.cash >= OPERATING_EXPENSES.salesManagerHireCost 
+                ? `Hire Sales Manager ($${OPERATING_EXPENSES.salesManagerHireCost.toLocaleString()})` 
+                : `Not Enough Cash (Need $${OPERATING_EXPENSES.salesManagerHireCost.toLocaleString()})`}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+      
+      {state.salesManager && (
+        <Card className="border-green-500/30 bg-gradient-to-r from-green-950/30 to-slate-900/30">
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <span>✅ Sales Manager</span>
+              <Badge variant="default" className="bg-green-600 text-lg px-4 py-2">
+                Active
+              </Badge>
+            </CardTitle>
+            <CardDescription>
+              Your Sales Manager enables auto-advance. Hired on {state.salesManager.hiredDate}.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="p-4 rounded-lg border border-slate-700 bg-slate-900/70">
+              <p className="text-xs text-slate-400">Daily Salary Cost</p>
+              <p className="mt-1 text-xl font-bold text-red-400">-${state.salesManager.salary.toLocaleString()}/day</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
       
       {Object.entries(upgradesByCategory).map(([category, upgrades]) => (
         <div key={category} className="space-y-4">

@@ -1,11 +1,8 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.BASE_CAPABILITIES = exports.ACHIEVEMENT_DEFINITIONS = exports.UPGRADE_DEFINITIONS = void 0;
 /**
  * All available upgrades in the game, defining progression path
  * These are checked and unlocked based on player progress
  */
-exports.UPGRADE_DEFINITIONS = [
+export const UPGRADE_DEFINITIONS = [
     // PHASE 1: Early game (first 30 minutes)
     {
         id: 'second_advisor',
@@ -231,7 +228,7 @@ exports.UPGRADE_DEFINITIONS = [
  * Achievement definitions
  * Hidden achievements that unlock based on milestones
  */
-exports.ACHIEVEMENT_DEFINITIONS = [
+export const ACHIEVEMENT_DEFINITIONS = [
     {
         id: 'first_sale',
         name: 'First Blood',
@@ -306,7 +303,7 @@ exports.ACHIEVEMENT_DEFINITIONS = [
 /**
  * Get base upgrade capabilities (before any upgrades)
  */
-exports.BASE_CAPABILITIES = {
+export const BASE_CAPABILITIES = {
     maxAdvisors: 1,
     maxTechnicians: 0,
     maxInventorySlots: 15,

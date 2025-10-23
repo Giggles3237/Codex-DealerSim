@@ -1,7 +1,10 @@
 import { promises as fs } from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { GameState } from '@dealership/shared';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 const DEFAULT_SAVE_PATH = path.resolve(__dirname, '../../data/save.json');
 
 export const loadStateFromFile = async (customPath?: string): Promise<GameState | null> => {

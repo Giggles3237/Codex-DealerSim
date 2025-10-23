@@ -67,8 +67,6 @@ const createStarterInventory = (rng: RNG, coefficients: Coefficients, pricingSta
         condition: 'used', // Only used cars to start
         desirability: 40 + rng.nextFloat() * 20, // 40-60 desirability
         ageDays: Math.floor(rng.nextFloat() * 20), // 0-20 days old
-        make: 'Generic',
-        model: segment === 'sedan' ? 'Sedan' : 'Compact',
       },
       rng,
       coefficients,
@@ -97,8 +95,6 @@ const createInventory = (rng: RNG, coefficients: Coefficients, pricingState: Pri
         condition,
         desirability: 45 + rng.nextFloat() * 45,
         ageDays: Math.floor(rng.nextFloat() * 40),
-        make: segment === 'ev' ? 'MIN-E' : 'Bimmer',
-        model: segment === 'suv' ? 'X7' : segment === 'performance' ? 'M4' : 'Series',
       },
       rng,
       coefficients,

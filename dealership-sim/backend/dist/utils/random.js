@@ -1,7 +1,4 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.seededRng = exports.RNG = void 0;
-class RNG {
+export class RNG {
     constructor(seed = Date.now() % 2147483647) {
         if (seed <= 0) {
             seed += 2147483646;
@@ -20,6 +17,4 @@ class RNG {
         return array[Math.min(array.length - 1, Math.max(0, index))];
     }
 }
-exports.RNG = RNG;
-const seededRng = (seed) => new RNG(seed);
-exports.seededRng = seededRng;
+export const seededRng = (seed) => new RNG(seed);

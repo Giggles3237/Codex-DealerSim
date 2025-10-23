@@ -1,7 +1,4 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.GameRepository = void 0;
-class GameRepository {
+export class GameRepository {
     constructor(initialState) {
         this.state = initialState;
     }
@@ -16,4 +13,3 @@ class GameRepository {
         return this.state;
     }
 }
-exports.GameRepository = GameRepository;

@@ -1,21 +1,19 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-const express_1 = require("express");
-const zod_1 = require("zod");
-const types_1 = require("./types");
-const archetypes_1 = require("../core/balance/archetypes");
-const shared_1 = require("@dealership/shared");
-const featureFlags_1 = require("../core/progression/featureFlags");
-const router = (0, express_1.Router)();
-const hireSchema = zod_1.z.object({
-    role: zod_1.z.enum(['advisor', 'tech', 'manager']),
-    archetype: zod_1.z.string().optional(),
+import { Router } from 'express';
+import { z } from 'zod';
+import { asEngineHandler } from './types';
+import { ADVISOR_ARCHETYPES, TECH_ARCHETYPES } from '../core/balance/archetypes';
+import { OPERATING_EXPENSES } from '@dealership/shared';
+import { validateHiring } from '../core/progression/featureFlags';
+const router = Router();
+const hireSchema = z.object({
+    role: z.enum(['advisor', 'tech', 'manager']),
+    archetype: z.string().optional(),
 });
-const trainSchema = zod_1.z.object({
-    id: zod_1.z.string(),
-    program: zod_1.z.string(),
+const trainSchema = z.object({
+    id: z.string(),
+    program: z.string(),
 });
-router.post('/staff/hire', (0, types_1.asEngineHandler)((req, res) => {
+router.post('/staff/hire', asEngineHandler((req, res) => {
     const parsed = hireSchema.safeParse(req.body);
     if (!parsed.success) {
         return res.status(400).json({ error: parsed.error.flatten() });
@@ -25,15 +23,15 @@ router.post('/staff/hire', (0, types_1.asEngineHandler)((req, res) => {
         if (state.salesManager) {
             return res.status(400).json({ error: 'You already have a Sales Manager' });
         }
-        if (state.cash < shared_1.OPERATING_EXPENSES.salesManagerHireCost) {
+        if (state.cash < OPERATING_EXPENSES.salesManagerHireCost) {
             return res.status(400).json({ error: 'Not enough cash to hire Sales Manager' });
         }
-        state.cash = Math.round(state.cash - shared_1.OPERATING_EXPENSES.salesManagerHireCost);
+        state.cash = Math.round(state.cash - OPERATING_EXPENSES.salesManagerHireCost);
         state.salesManager = {
             id: `manager-${Date.now()}`,
             name: 'Sales Manager',
             hiredDate: `${state.year}-${String(state.month).padStart(2, '0')}-${String(state.day).padStart(2, '0')}`,
-            salary: shared_1.OPERATING_EXPENSES.salesManagerSalaryPerDay,
+            salary: OPERATING_EXPENSES.salesManagerSalaryPerDay,
         };
         state.notifications.push(`Hired Sales Manager! Auto-advance is now enabled.`);
         req.repository.setState(state);
@@ -42,11 +40,11 @@ router.post('/staff/hire', (0, types_1.asEngineHandler)((req, res) => {
     }
     if (parsed.data.role === 'advisor') {
         // Validate hiring limits
-        const validation = (0, featureFlags_1.validateHiring)(state, 'advisor');
+        const validation = validateHiring(state, 'advisor');
         if (!validation.valid) {
             return res.status(400).json({ error: validation.error });
         }
-        const archetype = archetypes_1.ADVISOR_ARCHETYPES.find((arch) => arch.id === parsed.data.archetype);
+        const archetype = ADVISOR_ARCHETYPES.find((arch) => arch.id === parsed.data.archetype);
         if (!archetype) {
             return res.status(400).json({ error: 'Unknown advisor archetype' });
         }
@@ -67,11 +65,11 @@ router.post('/staff/hire', (0, types_1.asEngineHandler)((req, res) => {
     }
     else {
         // Validate hiring limits
-        const validation = (0, featureFlags_1.validateHiring)(state, 'technician');
+        const validation = validateHiring(state, 'technician');
         if (!validation.valid) {
             return res.status(400).json({ error: validation.error });
         }
-        const archetype = archetypes_1.TECH_ARCHETYPES.find((arch) => arch.id === parsed.data.archetype);
+        const archetype = TECH_ARCHETYPES.find((arch) => arch.id === parsed.data.archetype);
         if (!archetype) {
             return res.status(400).json({ error: 'Unknown technician archetype' });
         }
@@ -89,7 +87,7 @@ router.post('/staff/hire', (0, types_1.asEngineHandler)((req, res) => {
     req.repository.setState(state);
     res.json(state);
 }));
-router.post('/staff/train', (0, types_1.asEngineHandler)((req, res) => {
+router.post('/staff/train', asEngineHandler((req, res) => {
     const parsed = trainSchema.safeParse(req.body);
     if (!parsed.success) {
         return res.status(400).json({ error: parsed.error.flatten() });
@@ -104,4 +102,4 @@ router.post('/staff/train', (0, types_1.asEngineHandler)((req, res) => {
     req.repository.setState(state);
     res.json(state);
 }));
-exports.default = router;
+export default router;

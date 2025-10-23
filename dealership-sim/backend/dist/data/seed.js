@@ -1,11 +1,8 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.createSeedState = void 0;
-const shared_1 = require("@dealership/shared");
-const archetypes_1 = require("../core/balance/archetypes");
-const random_1 = require("../utils/random");
-const inventory_1 = require("../core/services/inventory");
-const unlockManager_1 = require("../core/progression/unlockManager");
+import { DEFAULT_COEFFICIENTS, DEFAULT_PRICING_STATE, } from '@dealership/shared';
+import { ADVISOR_ARCHETYPES } from '../core/balance/archetypes';
+import { RNG } from '../utils/random';
+import { createVehicle } from '../core/services/inventory';
+import { initializeAchievements } from '../core/progression/unlockManager';
 const STARTING_CASH = 25000; // Minimal starting capital for incremental game feel
 const START_YEAR = 2024;
 const START_MONTH = 1;
@@ -16,7 +13,7 @@ const baseMarketing = {
 };
 const createAdvisors = (rng, maxAdvisors = 1) => {
     // Start with just 1 advisor - pick the rookie for authenticity
-    const rookie = archetypes_1.ADVISOR_ARCHETYPES.find(a => a.id === 'rookie') || archetypes_1.ADVISOR_ARCHETYPES[0];
+    const rookie = ADVISOR_ARCHETYPES.find(a => a.id === 'rookie') || ADVISOR_ARCHETYPES[0];
     return [{
             id: 'advisor-1',
             name: rookie.name,
@@ -45,13 +42,11 @@ const createStarterInventory = (rng, coefficients, pricingState, count = 4, maxS
     for (let i = 0; i < count; i++) {
         const baseCost = avgCostPerUnit * 0.65 * (0.9 + rng.nextFloat() * 0.3); // Cheaper than average for starters
         const segment = rng.pick(starterSegments);
-        const vehicle = (0, inventory_1.createVehicle)({
+        const vehicle = createVehicle({
             segment,
             condition: 'used', // Only used cars to start
             desirability: 40 + rng.nextFloat() * 20, // 40-60 desirability
             ageDays: Math.floor(rng.nextFloat() * 20), // 0-20 days old
-            make: 'Generic',
-            model: segment === 'sedan' ? 'Sedan' : 'Compact',
         }, rng, coefficients, baseCost, pricingState);
         vehicles.push(vehicle);
     }
@@ -66,13 +61,11 @@ const createInventory = (rng, coefficients, pricingState, maxSlots = 15) => {
         const baseCost = avgCostPerUnit * (0.9 + rng.nextFloat() * 0.6);
         const segment = rng.pick(segments);
         const condition = rng.pick(['new', 'used', 'cpo', 'bev']);
-        const vehicle = (0, inventory_1.createVehicle)({
+        const vehicle = createVehicle({
             segment,
             condition,
             desirability: 45 + rng.nextFloat() * 45,
             ageDays: Math.floor(rng.nextFloat() * 40),
-            make: segment === 'ev' ? 'MIN-E' : 'Bimmer',
-            model: segment === 'suv' ? 'X7' : segment === 'performance' ? 'M4' : 'Series',
         }, rng, coefficients, baseCost, pricingState);
         vehicles.push(vehicle);
     }
@@ -133,9 +126,9 @@ const createHistory = (rng) => {
     });
     return { daily, monthly };
 };
-const createSeedState = (seed = 42, coefficients = shared_1.DEFAULT_COEFFICIENTS) => {
-    const rng = new random_1.RNG(seed);
-    const pricingState = { ...shared_1.DEFAULT_PRICING_STATE };
+export const createSeedState = (seed = 42, coefficients = DEFAULT_COEFFICIENTS) => {
+    const rng = new RNG(seed);
+    const pricingState = { ...DEFAULT_PRICING_STATE };
     // MINIMAL START - Incremental game style
     const advisors = createAdvisors(rng, 1); // Only 1 advisor (rookie)
     const technicians = createTechnicians(rng, 0); // NO technicians (service locked)
@@ -199,8 +192,7 @@ const createSeedState = (seed = 42, coefficients = shared_1.DEFAULT_COEFFICIENTS
         // Progression system initialization
         availableUpgrades: [], // Will be populated by unlock evaluation
         purchasedUpgrades: [],
-        achievements: (0, unlockManager_1.initializeAchievements)(), // Initialize all achievements as uncompleted
+        achievements: initializeAchievements(), // Initialize all achievements as uncompleted
     };
     return state;
 };
-exports.createSeedState = createSeedState;

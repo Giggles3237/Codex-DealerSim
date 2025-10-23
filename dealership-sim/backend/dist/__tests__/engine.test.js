@@ -1,16 +1,14 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-const gameRepository_1 = require("../core/repository/gameRepository");
-const loop_1 = require("../core/engine/loop");
-const seed_1 = require("../data/seed");
+import { GameRepository } from '../core/repository/gameRepository';
+import { SimulationEngine } from '../core/engine/loop';
+import { createSeedState } from '../data/seed';
 describe('SimulationEngine', () => {
     it('produces deterministic results with fixed seed', () => {
-        const seedStateA = (0, seed_1.createSeedState)(99);
-        const seedStateB = (0, seed_1.createSeedState)(99);
-        const repoA = new gameRepository_1.GameRepository(seedStateA);
-        const repoB = new gameRepository_1.GameRepository(seedStateB);
-        const engineA = new loop_1.SimulationEngine(repoA, { seed: 123 });
-        const engineB = new loop_1.SimulationEngine(repoB, { seed: 123 });
+        const seedStateA = createSeedState(99);
+        const seedStateB = createSeedState(99);
+        const repoA = new GameRepository(seedStateA);
+        const repoB = new GameRepository(seedStateB);
+        const engineA = new SimulationEngine(repoA, { seed: 123 });
+        const engineB = new SimulationEngine(repoB, { seed: 123 });
         const resultA = engineA.tick(5);
         const resultB = engineB.tick(5);
         expect(resultA.cash).toBeCloseTo(resultB.cash);

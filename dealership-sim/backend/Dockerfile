@@ -27,7 +27,8 @@ RUN pnpm install --prod --frozen-lockfile
 
 WORKDIR /app/backend
 
-EXPOSE 3001
+# Heroku uses PORT env variable
+EXPOSE ${PORT:-8080}
 
 CMD ["node", "dist/index.js"]
 

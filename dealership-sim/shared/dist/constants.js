@@ -1,7 +1,4 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.OPERATING_EXPENSES = exports.GAME_CONSTANTS = exports.BUSINESS_LEVELS = exports.PRICING_POLICY_MULTIPLIERS = exports.DEFAULT_PRICING_STATE = exports.CONFIG_PRESETS = exports.DEFAULT_COEFFICIENTS = void 0;
-exports.DEFAULT_COEFFICIENTS = {
+export const DEFAULT_COEFFICIENTS = {
     lead: {
         basePerDay: 10,
         marketingK: 0.10,
@@ -48,7 +45,7 @@ exports.DEFAULT_COEFFICIENTS = {
         targetReplacementGross: 3200,
     },
 };
-exports.CONFIG_PRESETS = [
+export const CONFIG_PRESETS = [
     {
         id: 'easy',
         name: 'Easy',
@@ -113,7 +110,7 @@ exports.CONFIG_PRESETS = [
         },
     },
 ];
-exports.DEFAULT_PRICING_STATE = {
+export const DEFAULT_PRICING_STATE = {
     globalPolicy: 'balanced',
     segmentPolicies: {},
     agingDiscounts: {
@@ -121,13 +118,13 @@ exports.DEFAULT_PRICING_STATE = {
         days90: 0.06, // 6% discount at 90 days
     },
 };
-exports.PRICING_POLICY_MULTIPLIERS = {
+export const PRICING_POLICY_MULTIPLIERS = {
     aggressive: 0.95, // Price 5% below calculated asking
     balanced: 1.0, // Use calculated asking price
     conservative: 1.05, // Price 5% above calculated asking
     market: 1.0, // Price based on desirability (dynamic)
 };
-exports.BUSINESS_LEVELS = [
+export const BUSINESS_LEVELS = [
     {
         level: 1,
         name: 'Small Lot',
@@ -187,12 +184,12 @@ exports.BUSINESS_LEVELS = [
         description: 'The ultimate dealership empire with unlimited potential.',
     },
 ];
-exports.GAME_CONSTANTS = {
+export const GAME_CONSTANTS = {
     seasons: ['winter', 'spring', 'summer', 'fall'],
     segments: ['luxury', 'performance', 'suv', 'sedan', 'compact', 'ev', 'crossover', 'convertible'],
 };
 // Operating expense constants (daily rates)
-exports.OPERATING_EXPENSES = {
+export const OPERATING_EXPENSES = {
     advisorSalaryPerDay: 150, // Daily cost per sales advisor (~$55k/year)
     technicianSalaryPerDay: 180, // Daily cost per technician (~$65k/year)
     salesManagerSalaryPerDay: 300, // Daily cost for sales manager (~$110k/year)

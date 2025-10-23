@@ -19,7 +19,7 @@ const POLICY_LABELS: Record<PricingPolicy, string> = {
 const InventoryView = ({ state }: Props) => {
   const { acquireInventory, setPricingPolicy, adjustVehiclePrice, setAgingDiscounts } = useGameStore();
   const [priceAdjustments, setPriceAdjustments] = useState<Record<string, string>>({});
-  const [buyQuantity, setBuyQuantity] = useState<number>(5);
+  const [buyQuantity, setBuyQuantity] = useState<number>(2);
 
   const grouped = state.inventory.reduce<Record<string, Vehicle[]>>((acc, vehicle) => {
     acc[vehicle.status] = acc[vehicle.status] || [];
@@ -41,10 +41,9 @@ const InventoryView = ({ state }: Props) => {
   const maxInventorySlots = getMaxInventorySlots();
   const avgCostPerUnit = Math.round((15000 + (maxInventorySlots * 150)) / 100) * 100; // Round to hundreds
   
-  // Add recon cost (200-800 range, avg ~600) and pack (450) per vehicle to match backend calculation
-  // Use max values to be conservative with estimates
-  const maxReconAndPack = 800 + 450; // Max recon + pack
-  const estimatedCostPerUnit = avgCostPerUnit + maxReconAndPack;
+  // Add pack per vehicle (recon happens when vehicles arrive)
+  const pack = 450;
+  const estimatedCostPerUnit = avgCostPerUnit + pack;
   const estimatedCost = estimatedCostPerUnit * buyQuantity;
   const canAfford = estimatedCost <= state.cash;
 
@@ -87,7 +86,8 @@ const InventoryView = ({ state }: Props) => {
         <CardHeader>
           <CardTitle>Buy Inventory</CardTitle>
           <CardDescription>
-            Purchase vehicles at auction. Avg vehicle: ${avgCostPerUnit.toLocaleString()} + max recon/pack ≈ ${estimatedCostPerUnit.toLocaleString()}/unit
+            Purchase vehicles at auction. Avg vehicle: ${avgCostPerUnit.toLocaleString()} + pack ≈ ${estimatedCostPerUnit.toLocaleString()}/unit
+            <span className="block mt-1 text-xs text-slate-400">Recon costs ($200-$800) will be charged when vehicles arrive at noon.</span>
             {!auctionOpen && <span className="text-red-400"> • Auction closed (opens 9 AM - 4 PM)</span>}
           </CardDescription>
         </CardHeader>
@@ -253,7 +253,7 @@ const InventoryView = ({ state }: Props) => {
                 </div>
                 <div>
                   <p>Cost Basis</p>
-                  <p className="text-lg font-semibold text-foreground">${Math.round(vehicle.cost + vehicle.reconCost).toLocaleString()}</p>
+                  <p className="text-lg font-semibold text-foreground">${Math.round(vehicle.cost + vehicle.reconCost + vehicle.pack).toLocaleString()}</p>
                 </div>
                 <div>
                   <p>Desirability</p>

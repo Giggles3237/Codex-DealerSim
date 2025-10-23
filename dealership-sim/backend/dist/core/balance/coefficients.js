@@ -1,8 +1,5 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.DEFAULT_SERVER_COEFFICIENTS = exports.healthCheck = exports.calculateExpectedGross = exports.mergeCoefficients = exports.cloneCoefficients = void 0;
-const shared_1 = require("@dealership/shared");
-const cloneCoefficients = (coefficients) => ({
+import { DEFAULT_COEFFICIENTS } from '@dealership/shared';
+export const cloneCoefficients = (coefficients) => ({
     lead: { ...coefficients.lead },
     sales: { ...coefficients.sales },
     pricing: { ...coefficients.pricing },
@@ -13,9 +10,8 @@ const cloneCoefficients = (coefficients) => ({
     morale: { ...coefficients.morale },
     guardrails: { ...coefficients.guardrails },
 });
-exports.cloneCoefficients = cloneCoefficients;
-const mergeCoefficients = (base, patch) => {
-    const next = (0, exports.cloneCoefficients)(base);
+export const mergeCoefficients = (base, patch) => {
+    const next = cloneCoefficients(base);
     Object.keys(patch).forEach((key) => {
         const value = patch[key];
         if (value) {
@@ -24,8 +20,7 @@ const mergeCoefficients = (base, patch) => {
     });
     return next;
 };
-exports.mergeCoefficients = mergeCoefficients;
-const calculateExpectedGross = (inventory, coefficients) => {
+export const calculateExpectedGross = (inventory, coefficients) => {
     if (inventory.length === 0) {
         return coefficients.guardrails.targetReplacementGross;
     }
@@ -35,9 +30,8 @@ const calculateExpectedGross = (inventory, coefficients) => {
     const expectedBack = coefficients.finance.avgBackGross * coefficients.finance.backGrossProb;
     return expectedFront + expectedBack;
 };
-exports.calculateExpectedGross = calculateExpectedGross;
-const healthCheck = (inventory, coefficients) => {
-    const expectedGross = (0, exports.calculateExpectedGross)(inventory, coefficients);
+export const healthCheck = (inventory, coefficients) => {
+    const expectedGross = calculateExpectedGross(inventory, coefficients);
     const replacementGross = coefficients.guardrails.targetReplacementGross * (1 + coefficients.inventory.auctionCostSpread / 2);
     const starving = expectedGross < replacementGross;
     return {
@@ -49,5 +43,4 @@ const healthCheck = (inventory, coefficients) => {
             : 'Coefficients support sustainable restocking.',
     };
 };
-exports.healthCheck = healthCheck;
-exports.DEFAULT_SERVER_COEFFICIENTS = (0, exports.cloneCoefficients)(shared_1.DEFAULT_COEFFICIENTS);
+export const DEFAULT_SERVER_COEFFICIENTS = cloneCoefficients(DEFAULT_COEFFICIENTS);

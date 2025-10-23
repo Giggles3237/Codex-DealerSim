@@ -1,11 +1,9 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-const sales_1 = require("../core/services/sales");
-const seed_1 = require("../data/seed");
-const { computeClosingProbability } = sales_1.__testing;
+import { __testing } from '../core/services/sales';
+import { createSeedState } from '../data/seed';
+const { computeClosingProbability } = __testing;
 describe('Sales closing probability', () => {
     it('increases with desirability', () => {
-        const state = (0, seed_1.createSeedState)();
+        const state = createSeedState();
         const advisor = state.advisors[0];
         const customer = {
             id: 'c1',

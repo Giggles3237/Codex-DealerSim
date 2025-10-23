@@ -83,7 +83,9 @@ const ControlPanel = ({ state, health }: Props) => {
           <CardDescription>Select a balancing preset to quickly tune the store.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-2">
-          {CONFIG_PRESETS.map((preset) => {
+          {CONFIG_PRESETS.filter(preset => 
+            ['easy', 'balanced', 'hard'].includes(preset.id)
+          ).map((preset) => {
             const isActive = getActivePreset() === preset.id;
             
             return (

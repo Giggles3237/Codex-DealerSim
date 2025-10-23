@@ -1,20 +1,23 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Loader2, Pause, Play, AlertTriangle } from 'lucide-react';
+import { Loader2, Pause, Play, AlertTriangle, Building2, Settings, Sparkles } from 'lucide-react';
 import { useGameStore } from './state/useGameStore';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/ui/tabs';
 import { Button } from './components/ui/button';
 import { ToastProvider, ToastViewport, Toast, ToastTitle, ToastDescription } from './components/ui/toast';
 import Dashboard from './features/dashboard/Dashboard';
-import ControlPanel from './features/control-panel/ControlPanel';
 import InventoryView from './features/inventory/InventoryView';
 import SalesView from './features/sales/SalesView';
 import ServiceView from './features/service/ServiceView';
 import ReportsView from './features/reports/ReportsView';
-import BusinessView from './features/business/BusinessView';
-import UpgradeShop from './features/upgrades/UpgradeShop';
+import BusinessLevelModal from './components/BusinessLevelModal';
+import ControlPanelModal from './components/ControlPanelModal';
+import UpgradeShopModal from './components/UpgradeShopModal';
 
 const App = () => {
   const [gameStarted, setGameStarted] = useState(false);
+  const [showBusinessLevelModal, setShowBusinessLevelModal] = useState(false);
+  const [showControlPanelModal, setShowControlPanelModal] = useState(false);
+  const [showUpgradeShopModal, setShowUpgradeShopModal] = useState(false);
   
   const {
     gameState,
@@ -53,16 +56,15 @@ const App = () => {
     const soldMTD = gameState.dailyHistory
       .filter((report) => report.date.includes(`${gameState.year}-${String(gameState.month).padStart(2, '0')}`))
       .reduce((acc, report) => acc + report.salesUnits, 0);
-    const grossMTD = gameState.dailyHistory
-      .filter((report) => report.date.includes(`${gameState.year}-${String(gameState.month).padStart(2, '0')}`))
-      .reduce((acc, report) => acc + report.totalGross, 0);
+    const soldYTD = gameState.dailyHistory
+      .filter((report) => report.date.includes(`${gameState.year}-`))
+      .reduce((acc, report) => acc + report.salesUnits, 0);
     return [
       { label: 'Business Level', value: `L${gameState.businessLevel || 1}` },
       { label: 'Cash', value: `$${Math.round(gameState.cash).toLocaleString()}` },
       { label: 'Units In Stock', value: gameState.inventory.filter((vehicle) => vehicle.status === 'inStock').length },
       { label: 'Units Sold (MTD)', value: soldMTD },
-      { label: 'Annual Goal', value: `${gameState.salesGoal || 120} cars` },
-      { label: 'Progress', value: `${Math.round(((gameState.lifetimeSales || 0) / (gameState.salesGoal || 120)) * 100)}%` },
+      { label: 'Units Sold (YTD)', value: soldYTD },
     ];
   }, [gameState]);
 
@@ -126,16 +128,48 @@ const App = () => {
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 pb-24 text-foreground relative">
         <header className="sticky top-0 z-20 border-b border-slate-800 bg-slate-950/80 backdrop-blur">
           <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight">Dealership Simulator</h1>
-              <p className="text-lg font-semibold text-blue-400">
-                {new Date(gameState.year, gameState.month - 1).toLocaleDateString(undefined, { month: 'long' })} {gameState.day}, {gameState.year}
-                <span className="ml-3 text-cyan-400">
-                  {gameState.hour === 12 ? '12:00 PM' : gameState.hour > 12 ? `${gameState.hour - 12}:00 PM` : gameState.hour === 0 ? '12:00 AM' : `${gameState.hour}:00 AM`}
-                </span>
-              </p>
+            <div className="flex items-center gap-4">
+              <div>
+                <h1 className="text-2xl font-bold tracking-tight">Dealership Simulator</h1>
+                <p className="text-lg font-semibold text-blue-400">
+                  {new Date(gameState.year, gameState.month - 1).toLocaleDateString(undefined, { month: 'long' })} {gameState.day}, {gameState.year}
+                  <span className="ml-3 text-cyan-400">
+                    {gameState.hour === 12 ? '12:00 PM' : gameState.hour > 12 ? `${gameState.hour - 12}:00 PM` : gameState.hour === 0 ? '12:00 AM' : `${gameState.hour}:00 AM`}
+                  </span>
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                onClick={() => setShowBusinessLevelModal(true)}
+                className="flex items-center gap-2"
+                title="View Business Level"
+              >
+                <Building2 className="h-5 w-5" />
+                <span className="hidden sm:inline">Level {gameState.businessLevel || 1}</span>
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setShowUpgradeShopModal(true)}
+                className="flex items-center gap-2"
+                title="Upgrade Shop"
+              >
+                <Sparkles className="h-5 w-5" />
+                {gameState.availableUpgrades?.filter(u => !u.purchased && u.unlocked).length > 0 && (
+                  <span className="bg-green-500 text-white text-xs rounded-full px-2 py-0.5">
+                    {gameState.availableUpgrades.filter(u => !u.purchased && u.unlocked).length}
+                  </span>
+                )}
+              </Button>
             </div>
             <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowControlPanelModal(true)}
+                className="flex items-center gap-2"
+                title="Control Panel"
+              >
+                <Settings className="h-5 w-5" />
+              </Button>
               <Button 
                 variant={gameState.hour === 21 && gameState.paused ? "default" : "outline"}
                 onClick={() => tick(1)}
@@ -197,16 +231,6 @@ const App = () => {
           <Tabs defaultValue="dashboard" className="mt-8">
             <TabsList>
               <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-              <TabsTrigger value="upgrades">
-                💎 Upgrades
-                {gameState.availableUpgrades?.filter(u => !u.purchased && u.unlocked).length > 0 && (
-                  <span className="ml-2 bg-green-500 text-white text-xs rounded-full px-2 py-0.5">
-                    {gameState.availableUpgrades.filter(u => !u.purchased && u.unlocked).length}
-                  </span>
-                )}
-              </TabsTrigger>
-              <TabsTrigger value="business">Business</TabsTrigger>
-              <TabsTrigger value="control">Control Panel</TabsTrigger>
               <TabsTrigger value="inventory">Inventory</TabsTrigger>
               <TabsTrigger value="sales">Sales</TabsTrigger>
               {/* Only show Service tab if service department is unlocked */}
@@ -217,15 +241,6 @@ const App = () => {
             </TabsList>
             <TabsContent value="dashboard">
               <Dashboard state={gameState} />
-            </TabsContent>
-            <TabsContent value="upgrades">
-              <UpgradeShop state={gameState} />
-            </TabsContent>
-            <TabsContent value="business">
-              <BusinessView state={gameState} />
-            </TabsContent>
-            <TabsContent value="control">
-              <ControlPanel state={gameState} health={health} />
             </TabsContent>
             <TabsContent value="inventory">
               <InventoryView state={gameState} />
@@ -242,6 +257,34 @@ const App = () => {
           </Tabs>
         </main>
       </div>
+
+      {/* Business Level Modal */}
+      {gameState && (
+        <BusinessLevelModal 
+          state={gameState} 
+          isOpen={showBusinessLevelModal} 
+          onClose={() => setShowBusinessLevelModal(false)} 
+        />
+      )}
+
+      {/* Control Panel Modal */}
+      {gameState && (
+        <ControlPanelModal 
+          state={gameState} 
+          health={health}
+          isOpen={showControlPanelModal} 
+          onClose={() => setShowControlPanelModal(false)} 
+        />
+      )}
+
+      {/* Upgrade Shop Modal */}
+      {gameState && (
+        <UpgradeShopModal 
+          state={gameState} 
+          isOpen={showUpgradeShopModal} 
+          onClose={() => setShowUpgradeShopModal(false)} 
+        />
+      )}
 
       <ToastViewport className="fixed bottom-4 right-4 z-50 flex w-full max-w-sm flex-col gap-2" />
       {toasts.map((toast) => {

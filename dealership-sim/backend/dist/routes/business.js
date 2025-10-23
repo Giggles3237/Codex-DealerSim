@@ -1,10 +1,8 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-const express_1 = require("express");
-const types_1 = require("./types");
-const shared_1 = require("@dealership/shared");
-const router = (0, express_1.Router)();
-router.post('/sales-goal', (0, types_1.asEngineHandler)((req, res) => {
+import { Router } from 'express';
+import { asEngineHandler } from './types';
+import { BUSINESS_LEVELS } from '@dealership/shared';
+const router = Router();
+router.post('/sales-goal', asEngineHandler((req, res) => {
     const { goal } = req.body;
     if (!goal || typeof goal !== 'number' || goal <= 0 || goal > 2000) {
         return res.status(400).json({ error: 'Invalid sales goal. Must be between 1 and 2000.' });
@@ -14,10 +12,10 @@ router.post('/sales-goal', (0, types_1.asEngineHandler)((req, res) => {
     req.repository.setState(state);
     res.json(state);
 }));
-router.post('/business/upgrade', (0, types_1.asEngineHandler)((req, res) => {
+router.post('/business/upgrade', asEngineHandler((req, res) => {
     const state = req.engine.getState();
-    const currentLevel = shared_1.BUSINESS_LEVELS.find(level => level.level === state.businessLevel);
-    const nextLevel = shared_1.BUSINESS_LEVELS.find(level => level.level === state.businessLevel + 1);
+    const currentLevel = BUSINESS_LEVELS.find(level => level.level === state.businessLevel);
+    const nextLevel = BUSINESS_LEVELS.find(level => level.level === state.businessLevel + 1);
     if (!nextLevel) {
         return res.status(400).json({ error: 'No upgrade available' });
     }
@@ -56,4 +54,4 @@ router.post('/business/upgrade', (0, types_1.asEngineHandler)((req, res) => {
     req.repository.setState(state);
     res.json(state);
 }));
-exports.default = router;
+export default router;

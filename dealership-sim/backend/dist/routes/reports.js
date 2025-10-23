@@ -1,9 +1,7 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-const express_1 = require("express");
-const types_1 = require("./types");
-const router = (0, express_1.Router)();
-router.get('/reports/monthly', (0, types_1.asEngineHandler)((req, res) => {
+import { Router } from 'express';
+import { asEngineHandler } from './types';
+const router = Router();
+router.get('/reports/monthly', asEngineHandler((req, res) => {
     const month = req.query.month;
     const state = req.engine.getState();
     if (month) {
@@ -15,8 +13,8 @@ router.get('/reports/monthly', (0, types_1.asEngineHandler)((req, res) => {
     }
     res.json(state.monthlyReports);
 }));
-router.get('/reports/export', (0, types_1.asEngineHandler)((req, res) => {
+router.get('/reports/export', asEngineHandler((req, res) => {
     const state = req.engine.getState();
     res.json({ month: `${state.year}-${String(state.month).padStart(2, '0')}`, daily: state.dailyHistory });
 }));
-exports.default = router;
+export default router;

@@ -101,16 +101,24 @@ export class SimulationEngine {
 
     // Deliver pending inventory at noon (hour 12)
     if (nextState.hour === 12) {
+      let reconCostTotal = 0;
       nextState.inventory = nextState.inventory.map(vehicle => {
         if (vehicle.status === 'pending') {
+          reconCostTotal += vehicle.reconCost;
           return { ...vehicle, status: 'inStock' as const };
         }
         return vehicle;
       });
       
+      // Deduct recon costs when vehicles arrive
+      if (reconCostTotal > 0) {
+        nextState.cash = Math.round(nextState.cash - reconCostTotal);
+        nextState.todayCashDelta = (nextState.todayCashDelta || 0) - reconCostTotal;
+      }
+      
       const pendingDelivered = nextState.inventory.filter(v => v.status === 'inStock' && v.ageDays === 0).length;
       if (pendingDelivered > 0) {
-        nextState.notifications.push(`${pendingDelivered} vehicles arrived from auction.`);
+        nextState.notifications.push(`${pendingDelivered} vehicles arrived from auction. Recon cost: $${reconCostTotal.toLocaleString()}`);
       }
     }
 

@@ -1,7 +1,4 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.validateHiring = exports.validateInventoryPurchase = exports.isFeatureUnlocked = exports.getMaxMarketingSpend = exports.hasPremiumAccess = exports.hasIncreasedMarketing = exports.canBuyBulk = exports.getMaxSpeed = exports.canOptimizeMarketing = exports.canAutoPricer = exports.canAutoBuy = exports.canAutoAdvance = exports.hasServiceAccess = exports.getMaxInventorySlots = exports.getMaxTechnicians = exports.getMaxAdvisors = void 0;
-const unlockDefinitions_1 = require("./unlockDefinitions");
+import { BASE_CAPABILITIES } from './unlockDefinitions';
 /**
  * Feature flags system - determines what player can access
  * based on purchased upgrades
@@ -9,8 +6,8 @@ const unlockDefinitions_1 = require("./unlockDefinitions");
 /**
  * Get maximum number of advisors based on purchased upgrades
  */
-function getMaxAdvisors(state) {
-    let max = unlockDefinitions_1.BASE_CAPABILITIES.maxAdvisors; // Start with 1
+export function getMaxAdvisors(state) {
+    let max = BASE_CAPABILITIES.maxAdvisors; // Start with 1
     // Check each upgrade that increases advisor count
     if (state.purchasedUpgrades.includes('second_advisor'))
         max = Math.max(max, 2);
@@ -26,12 +23,11 @@ function getMaxAdvisors(state) {
         max = Math.max(max, 8);
     return max;
 }
-exports.getMaxAdvisors = getMaxAdvisors;
 /**
  * Get maximum number of technicians based on purchased upgrades
  */
-function getMaxTechnicians(state) {
-    let max = unlockDefinitions_1.BASE_CAPABILITIES.maxTechnicians; // Start with 0 (no service)
+export function getMaxTechnicians(state) {
+    let max = BASE_CAPABILITIES.maxTechnicians; // Start with 0 (no service)
     if (state.purchasedUpgrades.includes('service_department'))
         max = Math.max(max, 2);
     if (state.purchasedUpgrades.includes('additional_techs_1'))
@@ -42,12 +38,11 @@ function getMaxTechnicians(state) {
         max = Math.max(max, 10);
     return max;
 }
-exports.getMaxTechnicians = getMaxTechnicians;
 /**
  * Get maximum inventory slots based on purchased upgrades
  */
-function getMaxInventorySlots(state) {
-    let max = unlockDefinitions_1.BASE_CAPABILITIES.maxInventorySlots; // Start with 15
+export function getMaxInventorySlots(state) {
+    let max = BASE_CAPABILITIES.maxInventorySlots; // Start with 15
     if (state.purchasedUpgrades.includes('inventory_expansion_1'))
         max = Math.max(max, 30);
     if (state.purchasedUpgrades.includes('inventory_expansion_2'))
@@ -58,88 +53,77 @@ function getMaxInventorySlots(state) {
         max = Math.max(max, 200);
     return max;
 }
-exports.getMaxInventorySlots = getMaxInventorySlots;
 /**
  * Check if player has access to service department
  */
-function hasServiceAccess(state) {
+export function hasServiceAccess(state) {
     return state.purchasedUpgrades.includes('service_department');
 }
-exports.hasServiceAccess = hasServiceAccess;
 /**
  * Check if player can use auto-advance
  */
-function canAutoAdvance(state) {
+export function canAutoAdvance(state) {
     return state.purchasedUpgrades.includes('sales_manager') || state.salesManager !== null;
 }
-exports.canAutoAdvance = canAutoAdvance;
 /**
  * Check if player can use auto-buyer
  */
-function canAutoBuy(state) {
+export function canAutoBuy(state) {
     return state.purchasedUpgrades.includes('auto_buyer');
 }
-exports.canAutoBuy = canAutoBuy;
 /**
  * Check if player can use auto-pricer
  */
-function canAutoPricer(state) {
+export function canAutoPricer(state) {
     return state.purchasedUpgrades.includes('auto_pricer');
 }
-exports.canAutoPricer = canAutoPricer;
 /**
  * Check if player can use marketing optimizer
  */
-function canOptimizeMarketing(state) {
+export function canOptimizeMarketing(state) {
     return state.purchasedUpgrades.includes('marketing_optimizer');
 }
-exports.canOptimizeMarketing = canOptimizeMarketing;
 /**
  * Get maximum speed multiplier available
  */
-function getMaxSpeed(state) {
+export function getMaxSpeed(state) {
     if (state.purchasedUpgrades.includes('speed_boost_30x'))
         return 30;
     if (state.purchasedUpgrades.includes('speed_boost_5x'))
         return 5;
     return 1;
 }
-exports.getMaxSpeed = getMaxSpeed;
 /**
  * Check if player can buy bulk inventory (5+ at once)
  */
-function canBuyBulk(state) {
+export function canBuyBulk(state) {
     return state.purchasedUpgrades.includes('bulk_inventory');
 }
-exports.canBuyBulk = canBuyBulk;
 /**
  * Check if player has increased marketing capacity
  */
-function hasIncreasedMarketing(state) {
+export function hasIncreasedMarketing(state) {
     return state.purchasedUpgrades.includes('marketing_boost');
 }
-exports.hasIncreasedMarketing = hasIncreasedMarketing;
 /**
  * Check if player has access to premium vehicles
  */
-function hasPremiumAccess(state) {
+export function hasPremiumAccess(state) {
     return state.purchasedUpgrades.includes('premium_inventory');
 }
-exports.hasPremiumAccess = hasPremiumAccess;
 /**
  * Get maximum marketing spend per day based on upgrades
  */
-function getMaxMarketingSpend(state) {
+export function getMaxMarketingSpend(state) {
     if (hasIncreasedMarketing(state)) {
         return 5000; // Higher cap with marketing boost
     }
     return 1000; // Initial cap
 }
-exports.getMaxMarketingSpend = getMaxMarketingSpend;
 /**
  * Check if a specific feature is unlocked
  */
-function isFeatureUnlocked(state, feature) {
+export function isFeatureUnlocked(state, feature) {
     switch (feature) {
         case 'service':
             return hasServiceAccess(state);
@@ -161,11 +145,10 @@ function isFeatureUnlocked(state, feature) {
             return false;
     }
 }
-exports.isFeatureUnlocked = isFeatureUnlocked;
 /**
  * Validate that a purchase doesn't exceed limits
  */
-function validateInventoryPurchase(state, quantity) {
+export function validateInventoryPurchase(state, quantity) {
     const maxSlots = getMaxInventorySlots(state);
     const currentSlots = state.inventory.filter(v => v.status === 'inStock').length;
     const availableSlots = maxSlots - currentSlots;
@@ -186,11 +169,10 @@ function validateInventoryPurchase(state, quantity) {
     }
     return { valid: true };
 }
-exports.validateInventoryPurchase = validateInventoryPurchase;
 /**
  * Validate that hiring doesn't exceed limits
  */
-function validateHiring(state, role) {
+export function validateHiring(state, role) {
     if (role === 'advisor') {
         const maxAdvisors = getMaxAdvisors(state);
         const currentAdvisors = state.advisors.filter(a => a.active).length;
@@ -219,4 +201,3 @@ function validateHiring(state, role) {
     }
     return { valid: true };
 }
-exports.validateHiring = validateHiring;
