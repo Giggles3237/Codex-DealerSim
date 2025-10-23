@@ -8,7 +8,7 @@
     "dev": "cd dealership-sim && pnpm -r --parallel dev",
     "build": "cd dealership-sim && pnpm -r build",
     "start": "cd dealership-sim && pnpm --filter=@dealership/backend start",
-    "heroku-postbuild": "cd dealership-sim && pnpm install && pnpm --filter=@dealership/shared build && pnpm --filter=@dealership/backend build",
+    "heroku-postbuild": "npm install -g pnpm@8.15.0 && cd dealership-sim && pnpm install && pnpm --filter=@dealership/shared build && pnpm --filter=@dealership/backend build",
     "test": "cd dealership-sim && pnpm -r test",
     "lint": "cd dealership-sim && pnpm -r lint",
     "format": "cd dealership-sim && pnpm -r format"
