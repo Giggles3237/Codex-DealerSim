@@ -1,6 +1,6 @@
 [build]
   command = "cd ../ && pnpm install && pnpm --filter=@dealership/shared build && pnpm --filter=@dealership/frontend build"
-  publish = "frontend/dist"
+  publish = "dist"
 
 [build.environment]
   VITE_API_BASE = "https://dealership-sim-ee5c0f63eae7.herokuapp.com"
