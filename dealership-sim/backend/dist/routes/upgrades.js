@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { asEngineHandler } from './types';
 import { purchaseUpgrade } from '../core/progression/unlockManager';
+import { saveStateToFile } from '../utils/save';
 const router = Router();
 const purchaseSchema = z.object({
     upgradeId: z.string(),
@@ -18,6 +19,10 @@ router.post('/upgrades/purchase', asEngineHandler((req, res) => {
         newState.notifications.push(`✨ Purchased: ${upgrade?.name}!`);
         newState.notifications.push(upgrade?.description || '');
         req.repository.setState(newState);
+        // Save state to disk for persistence
+        if (req.savePath) {
+            saveStateToFile(newState, req.savePath).catch((error) => console.error('Failed to save state after purchasing upgrade', error));
+        }
         res.json(newState);
     }
     catch (error) {

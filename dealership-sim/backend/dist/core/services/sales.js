@@ -42,7 +42,10 @@ const pickAdvisor = (advisors, rng) => {
 };
 const pickVehicle = (inventory, customer) => {
     const bevPreference = customer.bevAffinity > 0.1;
-    const eligible = inventory.filter((vehicle) => vehicle.status === 'inStock' && (bevPreference ? vehicle.condition === 'bev' || vehicle.segment === 'ev' : true));
+    // Don't sell vehicles on the same day they arrive (ageDays === 0)
+    const eligible = inventory.filter((vehicle) => vehicle.status === 'inStock' &&
+        vehicle.ageDays > 0 && // Must have been in stock for at least 1 day
+        (bevPreference ? vehicle.condition === 'bev' || vehicle.segment === 'ev' : true));
     const sorted = eligible.sort((a, b) => b.desirability - a.desirability);
     return sorted[0] ?? null;
 };

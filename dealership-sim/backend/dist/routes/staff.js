@@ -4,6 +4,7 @@ import { asEngineHandler } from './types';
 import { ADVISOR_ARCHETYPES, TECH_ARCHETYPES } from '../core/balance/archetypes';
 import { OPERATING_EXPENSES } from '@dealership/shared';
 import { validateHiring } from '../core/progression/featureFlags';
+import { saveStateToFile } from '../utils/save';
 const router = Router();
 const hireSchema = z.object({
     role: z.enum(['advisor', 'tech', 'manager']),
@@ -35,6 +36,10 @@ router.post('/staff/hire', asEngineHandler((req, res) => {
         };
         state.notifications.push(`Hired Sales Manager! Auto-advance is now enabled.`);
         req.repository.setState(state);
+        // Save state to disk for persistence
+        if (req.savePath) {
+            saveStateToFile(state, req.savePath).catch((error) => console.error('Failed to save state after hiring manager', error));
+        }
         res.json(state);
         return;
     }
@@ -85,6 +90,10 @@ router.post('/staff/hire', asEngineHandler((req, res) => {
     }
     state.notifications.push(`Hired a new ${parsed.data.role} (${parsed.data.archetype}).`);
     req.repository.setState(state);
+    // Save state to disk for persistence
+    if (req.savePath) {
+        saveStateToFile(state, req.savePath).catch((error) => console.error('Failed to save state after hiring staff', error));
+    }
     res.json(state);
 }));
 router.post('/staff/train', asEngineHandler((req, res) => {

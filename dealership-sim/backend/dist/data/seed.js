@@ -183,6 +183,7 @@ export const createSeedState = (seed = 42, coefficients = DEFAULT_COEFFICIENTS) 
             'Sell cars to earn money and unlock upgrades.',
             'Every sale counts - watch your cash flow carefully!'
         ],
+        storedNotifications: [], // Initialize empty achievement storage
         businessLevel: 1,
         totalRevenue: 0,
         lifetimeSales: 0,

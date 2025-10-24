@@ -1,11 +1,12 @@
 import { OPERATING_EXPENSES } from '@dealership/shared';
 import { RNG } from '../../utils/random';
-import { ageInventory } from '../services/inventory';
+import { ageInventory, acquirePack } from '../services/inventory';
 import { simulateSalesHour } from '../services/sales';
 import { runServiceDepartment } from '../services/service';
 import { applyRandomEvents } from '../events/randomEvents';
 import { clamp } from '../../utils/math';
 import { runProgressionCheck } from '../progression/unlockManager';
+import { getMaxInventorySlots } from '../progression/featureFlags';
 const DAYS_PER_MONTH = 30;
 /**
  * Calculate daily operating expenses including salaries, facility costs, and overhead
@@ -80,10 +81,11 @@ export class SimulationEngine {
             todayServiceROs: state.todayServiceROs || 0,
         };
         // Deliver pending inventory at noon (hour 12)
+        // Only deliver vehicles that were purchased yesterday or earlier
         if (nextState.hour === 12) {
             let reconCostTotal = 0;
             nextState.inventory = nextState.inventory.map(vehicle => {
-                if (vehicle.status === 'pending') {
+                if (vehicle.status === 'pending' && vehicle.purchasedDay && vehicle.purchasedDay < nextState.day) {
                     reconCostTotal += vehicle.reconCost;
                     return { ...vehicle, status: 'inStock' };
                 }
@@ -105,6 +107,12 @@ export class SimulationEngine {
             // Don't advance yet, just pause and wait for manual closeout
             nextState.hour = 21; // Keep at 9 PM
             nextState.paused = true; // Pause for manual closeout
+            // If sales manager is hired, set up auto-close day timer
+            if (nextState.salesManager && !nextState.autoCloseDayScheduled) {
+                nextState.autoCloseDayScheduled = true;
+                nextState.autoCloseDayTimer = 10000; // 10 seconds in milliseconds
+                nextState.notifications.push('Sales Manager will automatically close out the day in 10 seconds...');
+            }
             return nextState;
         }
         // During business hours, process sales and service activity
@@ -127,6 +135,35 @@ export class SimulationEngine {
         nextState.todayCashDelta = (nextState.todayCashDelta || 0) + sales.cashDelta;
         nextState.todayCsiDelta = (nextState.todayCsiDelta || 0) + sales.csiDelta;
         nextState.todayMoraleDelta = (nextState.todayMoraleDelta || 0) + sales.moraleDelta;
+        // Auto-buy inventory if used car manager is hired and inventory is low
+        if (nextState.purchasedUpgrades.includes('used_car_manager') && nextState.hour === 10) {
+            // Check inventory levels at 10 AM (auction is open until 4 PM)
+            const currentStock = nextState.inventory.filter(v => v.status === 'inStock').length;
+            const maxSlots = getMaxInventorySlots(nextState);
+            const inventoryThreshold = Math.max(2, Math.floor(maxSlots * 0.2)); // Keep at least 20% of capacity or 2 vehicles
+            if (currentStock < inventoryThreshold) {
+                // Used Car Manager buys conservatively - only 1-2 vehicles at a time
+                const neededVehicles = Math.min(2, Math.max(1, maxSlots - currentStock));
+                // Calculate cost for auto-buy
+                const avgCostPerUnit = Math.round((15000 + (maxSlots * 150)) / 100) * 100;
+                const estimatedCost = (avgCostPerUnit + 450) * neededVehicles * 1.2; // Add 20% buffer for randomness
+                if (estimatedCost <= nextState.cash) {
+                    // Auto-buy inventory
+                    const rng = new RNG();
+                    const acquisition = acquirePack('neutral', neededVehicles, rng, nextState.coefficients, nextState.pricing, avgCostPerUnit);
+                    if (acquisition.cost <= nextState.cash) {
+                        const vehiclesWithPendingStatus = acquisition.vehicles.map(vehicle => ({
+                            ...vehicle,
+                            status: 'pending',
+                            purchasedDay: nextState.day,
+                        }));
+                        nextState.cash = Math.round(nextState.cash - acquisition.cost);
+                        nextState.inventory = [...nextState.inventory, ...vehiclesWithPendingStatus];
+                        nextState.notifications.push(`Used Car Manager conservatively purchased ${acquisition.vehicles.length} vehicle${acquisition.vehicles.length > 1 ? 's' : ''} for $${acquisition.cost.toLocaleString()}. They'll arrive tomorrow at noon.`);
+                    }
+                }
+            }
+        }
         // Update cash immediately
         nextState.cash = Math.round(nextState.cash + sales.cashDelta);
         // Store recent deals and lead activity
@@ -156,12 +193,27 @@ export class SimulationEngine {
         nextState.todayCsiDelta = (nextState.todayCsiDelta || 0) + serviceResult.csiDelta;
         return nextState;
     }
+    // Cancel auto-close day timer (when user manually closes day)
+    cancelAutoCloseDayTimer() {
+        let state = this.repository.getState();
+        if (state.autoCloseDayScheduled) {
+            state.autoCloseDayScheduled = false;
+            state.autoCloseDayTimer = undefined;
+            state.notifications.push('Auto-close day cancelled.');
+        }
+        this.repository.setState(state);
+        return state;
+    }
     // Close out the day - processes all daily operations and advances to next day
     closeOutDay(forceTick = false) {
         let state = this.repository.getState();
         // Only allow closeout if we're at end of day
         if (state.hour < 21) {
             return state;
+        }
+        // Cancel auto-close timer if manually closing
+        if (!forceTick && state.autoCloseDayScheduled) {
+            state = this.cancelAutoCloseDayTimer();
         }
         state = this.runDailyOperations(state, forceTick);
         this.repository.setState(state);
@@ -194,6 +246,9 @@ export class SimulationEngine {
             todayServiceHours: 0,
             todayServiceParts: 0,
             todayServiceROs: 0,
+            // Reset auto-close day timer
+            autoCloseDayScheduled: false,
+            autoCloseDayTimer: undefined,
         };
         if (nextState.day > DAYS_PER_MONTH) {
             nextState.day = 1;
@@ -325,6 +380,13 @@ export class SimulationEngine {
         const progressionResult = runProgressionCheck(nextState);
         nextState = progressionResult.state;
         nextState.notifications.push(...progressionResult.notifications);
+        // Store achievement notifications persistently
+        if (progressionResult.storedNotifications.length > 0) {
+            if (!nextState.storedNotifications) {
+                nextState.storedNotifications = [];
+            }
+            nextState.storedNotifications.push(...progressionResult.storedNotifications);
+        }
         // Keep paused after closeout so player can see summary
         nextState.paused = true;
         return nextState;

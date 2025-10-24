@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto';
 import { PRICING_POLICY_MULTIPLIERS } from '@dealership/shared';
 import { clamp } from '../../utils/math';
-import { getRandomVehicleForSegment, getYearPriceMultiplier } from '../data/vehicles';
+import { getRandomVehicleForSegment } from '../data/vehicles';
 const SEGMENT_BASE_DEMAND = {
     luxury: 0.9,
     performance: 0.8,
@@ -19,10 +19,12 @@ const CONDITION_DESIRABILITY = {
     bev: 1.1,
 };
 const AGE_DEPRECIATION = [
-    { max: 30, rate: 0.001 },
-    { max: 60, rate: 0.0025 },
-    { max: 120, rate: 0.004 },
-    { max: Infinity, rate: 0.006 },
+    { max: 15, rate: 0.0005 }, // Days 1-15: Very slow depreciation (best profit)
+    { max: 30, rate: 0.0015 }, // Days 16-30: Moderate depreciation (good profit)
+    { max: 45, rate: 0.003 }, // Days 31-45: Faster depreciation (break even)
+    { max: 60, rate: 0.005 }, // Days 46-60: Fast depreciation (manage losses)
+    { max: 120, rate: 0.008 }, // Days 61-120: Very fast depreciation
+    { max: Infinity, rate: 0.012 }, // Days 121+: Extreme depreciation
 ];
 export const ageInventory = (inventory, economyDemand) => {
     return inventory.map((vehicle) => {
@@ -102,17 +104,20 @@ export const createVehicle = (overrides, rng, coefficients, baseCost, pricingSta
     }
     // Cost basis is what you paid at auction (no depreciation)
     const roundedCost = Math.round(baseCost / 100) * 100;
-    // Apply depreciation to the asking price based on vehicle year
-    const yearMultiplier = getYearPriceMultiplier(vehicleData.year);
-    const marketValue = baseCost * yearMultiplier;
-    const baseAsking = Math.round(marketValue * (1.18 + rng.nextFloat() * 0.08) / 100) * 100;
+    // Calculate total cost basis (what we actually paid)
+    const totalCostBasis = roundedCost + pack + recon;
+    // Target profit: $3,000-$4,000 for fresh inventory
+    const targetProfit = 3000 + rng.nextFloat() * 1000;
+    // Base asking price = cost basis + target profit
+    const baseAsking = Math.round((totalCostBasis + targetProfit) / 100) * 100;
     // Apply pricing policy if provided
     let asking = baseAsking;
     if (pricingState) {
         const policy = pricingState.segmentPolicies[segment] ?? pricingState.globalPolicy;
         asking = Math.round(applyPricingPolicy(baseAsking, policy, desirability, ageDays, pricingState.agingDiscounts) / 100) * 100;
     }
-    const floor = baseCost * 1.02; // Keep floor precise for interest calculations
+    // Floor is cost basis - don't allow selling below what you paid
+    const floor = totalCostBasis;
     return {
         id: randomUUID(),
         stockNumber: `STK-${Math.floor(rng.nextFloat() * 90000 + 10000)}`,

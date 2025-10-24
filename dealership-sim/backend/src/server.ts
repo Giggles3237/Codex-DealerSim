@@ -77,6 +77,7 @@ export const startServer = async ({ port, seedMode }: StartOptions) => {
     }
   };
 
+
   schedule();
 
   console.log('=== SETTING UP MIDDLEWARE ===');

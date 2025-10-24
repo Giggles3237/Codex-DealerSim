@@ -92,11 +92,11 @@ export const UPGRADE_DEFINITIONS: Omit<Upgrade, 'unlocked' | 'purchased'>[] = [
   {
     id: 'used_car_manager',
     name: 'Hire Used Car Manager',
-    description: 'Hire a Used Car Manager to unlock advanced pricing strategies and inventory management.',
+    description: 'Hire a Used Car Manager to unlock advanced pricing strategies and conservative auto-buying (buys 1-2 vehicles when inventory is low).',
     cost: 18000,
     category: 'staff',
     requirements: { revenue: 75000, lifetimeSales: 40 },
-    effects: { additionalFeatures: ['advanced_pricing'] },
+    effects: { additionalFeatures: ['advanced_pricing', 'auto_inventory_buying'] },
   },
   {
     id: 'premium_inventory',
@@ -166,7 +166,7 @@ export const UPGRADE_DEFINITIONS: Omit<Upgrade, 'unlocked' | 'purchased'>[] = [
   {
     id: 'auto_buyer',
     name: 'Automated Inventory Manager',
-    description: 'Automatically purchase inventory when stock is low. Set it and forget it!',
+    description: 'Advanced automation that aggressively maintains inventory levels. Buys 5-10+ vehicles to keep 50-70% capacity filled. True set-it-and-forget-it automation!',
     cost: 35000,
     category: 'automation',
     requirements: { revenue: 300000, lifetimeSales: 150, upgrades: ['auto_pricer'] },

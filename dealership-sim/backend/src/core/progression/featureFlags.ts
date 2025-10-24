@@ -69,7 +69,7 @@ export function canAutoAdvance(state: GameState): boolean {
  * Check if player can use auto-buyer
  */
 export function canAutoBuy(state: GameState): boolean {
-  return state.purchasedUpgrades.includes('auto_buyer');
+  return state.purchasedUpgrades.includes('auto_buyer') || state.purchasedUpgrades.includes('used_car_manager');
 }
 
 /**
@@ -136,6 +136,7 @@ export function isFeatureUnlocked(state: GameState, feature: string): boolean {
     case 'auto_advance':
       return canAutoAdvance(state);
     case 'auto_buyer':
+    case 'auto_inventory_buying':
       return canAutoBuy(state);
     case 'auto_pricer':
       return canAutoPricer(state);

@@ -21,6 +21,7 @@ export interface Vehicle {
   holdbackPct: number;
   pack: number;
   status: VehicleStatus;
+  purchasedDay?: number; // Day when vehicle was purchased (for delivery tracking)
 }
 
 export interface SkillProfile {
@@ -298,6 +299,16 @@ export interface Achievement {
   };
 }
 
+export type NotificationType = 'update' | 'achievement' | 'upgrade';
+
+export interface Notification {
+  id: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  timestamp: string;
+}
+
 export interface GameState {
   day: number;
   month: number;
@@ -322,6 +333,8 @@ export interface GameState {
   advisors: SalesAdvisor[];
   technicians: Technician[];
   salesManager: SalesManager | null; // Unlocks auto-advance when hired
+  autoCloseDayScheduled?: boolean; // Whether auto-close day timer is active
+  autoCloseDayTimer?: number; // Timer in milliseconds for auto-close day
   pipeline: PipelineState;
   activeDeals: Deal[];
   recentDeals: Deal[];
@@ -335,7 +348,8 @@ export interface GameState {
   moraleIndex: number;
   dailyHistory: DailyReport[];
   monthlyReports: MonthlyReport[];
-  notifications: string[];
+  notifications: string[]; // Legacy format - kept for backwards compatibility
+  storedNotifications: Notification[]; // New structured notifications (persistent)
   businessLevel: number;
   totalRevenue: number;
   lifetimeSales: number;

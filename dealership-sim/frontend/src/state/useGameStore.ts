@@ -30,6 +30,7 @@ interface GameStore {
   purchaseUpgrade: (upgradeId: string) => Promise<void>;
   clearError: () => void;
   dismissToast: (id: string) => void;
+  pushNotifications: (messages: string[]) => void;
 }
 
 export const useGameStore = create<GameStore>()(

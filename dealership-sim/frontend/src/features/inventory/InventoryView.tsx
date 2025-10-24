@@ -42,10 +42,14 @@ const InventoryView = ({ state }: Props) => {
   const avgCostPerUnit = Math.round((15000 + (maxInventorySlots * 150)) / 100) * 100; // Round to hundreds
   
   // Add pack per vehicle (recon happens when vehicles arrive)
+  // Actual cost varies by ±30% due to randomness
   const pack = 450;
-  const estimatedCostPerUnit = avgCostPerUnit + pack;
-  const estimatedCost = estimatedCostPerUnit * buyQuantity;
-  const canAfford = estimatedCost <= state.cash;
+  const minCostPerUnit = (avgCostPerUnit * 0.9) + pack;
+  const maxCostPerUnit = (avgCostPerUnit * 1.2) + pack;
+  const estimatedCost = avgCostPerUnit + pack;
+  const estimatedCostMin = minCostPerUnit * buyQuantity;
+  const estimatedCostMax = maxCostPerUnit * buyQuantity;
+  const canAfford = estimatedCostMax <= state.cash;
 
   // Check if used car manager is hired (unlocks pricing strategy)
   const hasUsedCarManager = state.purchasedUpgrades.includes('used_car_manager');
@@ -86,8 +90,9 @@ const InventoryView = ({ state }: Props) => {
         <CardHeader>
           <CardTitle>Buy Inventory</CardTitle>
           <CardDescription>
-            Purchase vehicles at auction. Avg vehicle: ${avgCostPerUnit.toLocaleString()} + pack ≈ ${estimatedCostPerUnit.toLocaleString()}/unit
-            <span className="block mt-1 text-xs text-slate-400">Recon costs ($200-$800) will be charged when vehicles arrive at noon.</span>
+            Purchase vehicles at auction. Avg: ${avgCostPerUnit.toLocaleString()} + pack ≈ ${(avgCostPerUnit + pack).toLocaleString()}/unit
+            <span className="block mt-1 text-xs text-slate-400">Actual cost varies ±30%. Recon ($200-$800) charged when vehicles arrive.</span>
+            <span className="block mt-1 text-xs text-slate-400">Fresh inventory targets $3,000-$4,000 profit per unit.</span>
             {!auctionOpen && <span className="text-red-400"> • Auction closed (opens 9 AM - 4 PM)</span>}
           </CardDescription>
         </CardHeader>
@@ -105,9 +110,9 @@ const InventoryView = ({ state }: Props) => {
               />
             </div>
             <div className="flex-1">
-              <label className="text-sm font-medium text-slate-300">Estimated Cost</label>
+              <label className="text-sm font-medium text-slate-300">Estimated Cost Range</label>
               <div className={`mt-1 text-lg font-semibold ${canAfford ? 'text-green-400' : 'text-red-500'}`}>
-                ${estimatedCost.toLocaleString()}
+                ${Math.round(estimatedCostMin).toLocaleString()} - ${Math.round(estimatedCostMax).toLocaleString()}
               </div>
               <div className={`text-xs ${canAfford ? 'text-slate-500' : 'text-red-400'}`}>
                 Available: ${Math.round(state.cash).toLocaleString()}
@@ -252,9 +257,36 @@ const InventoryView = ({ state }: Props) => {
                   )}
                 </div>
                 <div>
-                  <p>Cost Basis</p>
-                  <p className="text-lg font-semibold text-foreground">${Math.round(vehicle.cost + vehicle.reconCost + vehicle.pack).toLocaleString()}</p>
+                  <p>Potential Profit</p>
+                  <p className={`text-lg font-semibold ${vehicle.asking - (vehicle.cost + vehicle.reconCost + vehicle.pack) > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    ${Math.round(vehicle.asking - (vehicle.cost + vehicle.reconCost + vehicle.pack)).toLocaleString()}
+                  </p>
                 </div>
+              </div>
+              
+              <div className="border-t border-slate-700 pt-3">
+                <p className="text-xs font-semibold text-slate-400 mb-2">COST BREAKDOWN</p>
+                <div className="space-y-1 text-xs">
+                  <div className="flex justify-between">
+                    <span>Purchase Price:</span>
+                    <span className="font-mono">${Math.round(vehicle.cost).toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Pack:</span>
+                    <span className="font-mono">${Math.round(vehicle.pack).toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Recon:</span>
+                    <span className="font-mono">${Math.round(vehicle.reconCost).toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between border-t border-slate-700 pt-1 font-semibold">
+                    <span>Total Cost Basis:</span>
+                    <span className="font-mono">${Math.round(vehicle.cost + vehicle.reconCost + vehicle.pack).toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-2 text-sm text-slate-300">
                 <div>
                   <p>Desirability</p>
                   <p className="text-lg font-semibold">{Math.round(vehicle.desirability)}</p>

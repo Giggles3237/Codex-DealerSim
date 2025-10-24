@@ -4,6 +4,7 @@ import { EngineRequest, asEngineHandler } from './types';
 import { ADVISOR_ARCHETYPES, TECH_ARCHETYPES } from '../core/balance/archetypes';
 import { OPERATING_EXPENSES } from '@dealership/shared';
 import { validateHiring, canAutoAdvance } from '../core/progression/featureFlags';
+import { saveStateToFile } from '../utils/save';
 
 const router = Router();
 
@@ -40,6 +41,12 @@ router.post('/staff/hire', asEngineHandler((req: EngineRequest, res: Response) =
     };
     state.notifications.push(`Hired Sales Manager! Auto-advance is now enabled.`);
     req.repository.setState(state);
+    
+    // Save state to disk for persistence
+    if (req.savePath) {
+      saveStateToFile(state, req.savePath).catch((error) => console.error('Failed to save state after hiring manager', error));
+    }
+    
     res.json(state);
     return;
   }
@@ -92,6 +99,12 @@ router.post('/staff/hire', asEngineHandler((req: EngineRequest, res: Response) =
   }
   state.notifications.push(`Hired a new ${parsed.data.role} (${parsed.data.archetype}).`);
   req.repository.setState(state);
+  
+  // Save state to disk for persistence
+  if (req.savePath) {
+    saveStateToFile(state, req.savePath).catch((error) => console.error('Failed to save state after hiring staff', error));
+  }
+  
   res.json(state);
 }));
 

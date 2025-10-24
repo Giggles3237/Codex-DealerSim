@@ -5,6 +5,7 @@ import { acquirePack, applyPricingPolicy } from '../core/services/inventory';
 import { RNG } from '../utils/random';
 import { Vehicle, PricingPolicy } from '@dealership/shared';
 import { validateInventoryPurchase, getMaxInventorySlots } from '../core/progression/featureFlags';
+import { saveStateToFile } from '../utils/save';
 
 const router = Router();
 
@@ -60,13 +61,22 @@ router.post('/inventory/acquire', asEngineHandler((req: EngineRequest, res: Resp
   // Inventory arrives at noon next business day (status: pending)
   const vehiclesWithPendingStatus = acquisition.vehicles.map(vehicle => ({
     ...vehicle,
-    status: 'pending' as const
+    status: 'pending' as const,
+    purchasedDay: state.day, // Track when vehicles were purchased
   }));
   
   state.cash = Math.round(state.cash - acquisition.cost);
   state.inventory = [...state.inventory, ...vehiclesWithPendingStatus];
-  state.notifications.push(`Purchased ${acquisition.vehicles.length} ${parsed.data.pack} vehicles at auction. They'll arrive tomorrow at noon.`);
+  state.notifications.push(
+    `Purchased ${acquisition.vehicles.length} ${parsed.data.pack} vehicles at auction for $${acquisition.cost.toLocaleString()}. They'll arrive tomorrow at noon.`
+  );
   req.repository.setState(state);
+  
+  // Save state to disk for persistence
+  if (req.savePath) {
+    saveStateToFile(state, req.savePath).catch((error) => console.error('Failed to save state after inventory purchase', error));
+  }
+  
   res.json(state);
 }));
 

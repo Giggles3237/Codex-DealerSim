@@ -20,6 +20,7 @@ export interface Vehicle {
     holdbackPct: number;
     pack: number;
     status: VehicleStatus;
+    purchasedDay?: number;
 }
 export interface SkillProfile {
     close: number;
@@ -274,6 +275,14 @@ export interface Achievement {
         value: number;
     };
 }
+export type NotificationType = 'update' | 'achievement' | 'upgrade';
+export interface Notification {
+    id: string;
+    type: NotificationType;
+    title: string;
+    message: string;
+    timestamp: string;
+}
 export interface GameState {
     day: number;
     month: number;
@@ -297,6 +306,8 @@ export interface GameState {
     advisors: SalesAdvisor[];
     technicians: Technician[];
     salesManager: SalesManager | null;
+    autoCloseDayScheduled?: boolean;
+    autoCloseDayTimer?: number;
     pipeline: PipelineState;
     activeDeals: Deal[];
     recentDeals: Deal[];
@@ -311,6 +322,7 @@ export interface GameState {
     dailyHistory: DailyReport[];
     monthlyReports: MonthlyReport[];
     notifications: string[];
+    storedNotifications: Notification[];
     businessLevel: number;
     totalRevenue: number;
     lifetimeSales: number;

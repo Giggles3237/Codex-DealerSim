@@ -9,15 +9,19 @@ import InventoryView from './features/inventory/InventoryView';
 import SalesView from './features/sales/SalesView';
 import ServiceView from './features/service/ServiceView';
 import ReportsView from './features/reports/ReportsView';
+import { AchievementsView } from './features/achievements/AchievementsView';
 import BusinessLevelModal from './components/BusinessLevelModal';
 import ControlPanelModal from './components/ControlPanelModal';
 import UpgradeShopModal from './components/UpgradeShopModal';
+import { AutoCloseDayModal } from './components/AutoCloseDayModal';
+import { DailySummaryModal } from './components/DailySummaryModal';
 
 const App = () => {
   const [gameStarted, setGameStarted] = useState(false);
   const [showBusinessLevelModal, setShowBusinessLevelModal] = useState(false);
   const [showControlPanelModal, setShowControlPanelModal] = useState(false);
   const [showUpgradeShopModal, setShowUpgradeShopModal] = useState(false);
+  const [showAutoCloseDayModal, setShowAutoCloseDayModal] = useState(false);
   
   const {
     gameState,
@@ -50,6 +54,20 @@ const App = () => {
 
     return () => clearInterval(interval);
   }, [gameState, gameState?.paused, refreshState]);
+
+  // Auto-close day modal logic
+  useEffect(() => {
+    if (gameState?.autoCloseDayScheduled && !showAutoCloseDayModal) {
+      setShowAutoCloseDayModal(true);
+    }
+    
+    // Auto-dismiss modal when auto-close timer is no longer scheduled
+    if (!gameState?.autoCloseDayScheduled && showAutoCloseDayModal) {
+      setShowAutoCloseDayModal(false);
+    }
+  }, [gameState?.autoCloseDayScheduled, showAutoCloseDayModal]);
+
+  // Auto-close day timer updates - removed frequent updates to improve performance
 
   const kpis = useMemo(() => {
     if (!gameState) return [];
@@ -238,6 +256,14 @@ const App = () => {
                 <TabsTrigger value="service">Service</TabsTrigger>
               )}
               <TabsTrigger value="reports">Reports</TabsTrigger>
+              <TabsTrigger value="achievements" className="relative">
+                Achievements
+                {gameState.achievements?.filter(a => a.completed).length > 0 && (
+                  <span className="ml-2 bg-green-500 text-white text-xs rounded-full px-2 py-0.5">
+                    {gameState.achievements.filter(a => a.completed).length}
+                  </span>
+                )}
+              </TabsTrigger>
             </TabsList>
             <TabsContent value="dashboard">
               <Dashboard state={gameState} />
@@ -253,6 +279,12 @@ const App = () => {
             </TabsContent>
             <TabsContent value="reports">
               <ReportsView state={gameState} />
+            </TabsContent>
+            <TabsContent value="achievements">
+              <AchievementsView 
+                achievements={gameState.achievements || []} 
+                storedNotifications={gameState.storedNotifications || []}
+              />
             </TabsContent>
           </Tabs>
         </main>
@@ -286,6 +318,16 @@ const App = () => {
         />
       )}
 
+      {/* Auto-Close Day Modal */}
+      {gameState && (
+        <AutoCloseDayModal
+          gameState={gameState}
+          isOpen={showAutoCloseDayModal}
+          onClose={() => setShowAutoCloseDayModal(false)}
+          onCloseDay={() => tick(1)}
+        />
+      )}
+
       <ToastViewport className="fixed bottom-4 right-4 z-50 flex w-full max-w-sm flex-col gap-2" />
       {toasts.map((toast) => {
         const isDailySummary = toast.description.includes('📊 Day') && toast.description.includes('Complete!');
@@ -298,38 +340,13 @@ const App = () => {
           };
           
           return (
-            <div key={toast.id} className="fixed inset-0 z-[100000] flex items-center justify-center" style={{ zIndex: 100000 }}>
-              {/* Backdrop */}
-              <div 
-                className="absolute inset-0 bg-black/80"
-                onClick={handleDismiss}
-              />
-              {/* Modal */}
-              <div className="relative z-10 max-w-2xl w-[90vw] rounded-xl border-2 border-blue-500/50 bg-slate-800 shadow-2xl p-6">
-                <div className="flex flex-col w-full">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-lg font-bold text-blue-400">{toast.title}</h3>
-                    <button
-                      type="button"
-                      onClick={handleDismiss}
-                      className="text-slate-400 hover:text-slate-200 text-xl font-bold px-2"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                  <div className="text-base whitespace-pre-line font-mono leading-relaxed text-slate-200">
-                    {toast.description}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleDismiss}
-                    className="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg"
-                  >
-                    Continue to Next Day
-                  </button>
-                </div>
-              </div>
-            </div>
+            <DailySummaryModal
+              key={toast.id}
+              title={toast.title}
+              description={toast.description}
+              onDismiss={handleDismiss}
+              autoDismissDelay={20}
+            />
           );
         }
         
