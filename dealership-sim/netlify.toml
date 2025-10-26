@@ -1,5 +1,5 @@
 [build]
-  command = "cd ../ && pnpm install && pnpm --filter=@dealership/shared build && pnpm --filter=@dealership/frontend build"
+  command = "pnpm install && pnpm --filter=@dealership/shared build && pnpm --filter=@dealership/frontend build"
   publish = "frontend/dist"
 
 [build.environment]
@@ -9,3 +9,4 @@
   from = "/*"
   to = "/index.html"
   status = 200
+
