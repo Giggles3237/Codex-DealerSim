@@ -3,6 +3,4 @@ build
 .DS_Store
 .env
 backend/data/save.json
-
-# Keep dist for deployment
-# dist
+dist
