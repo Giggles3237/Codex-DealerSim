@@ -8,7 +8,7 @@ You need to set **ONE** environment variable in Netlify:
 
 | Variable Name | Value | Description |
 |---------------|-------|-------------|
-| `VITE_API_BASE` | `https://dealership-sim-ee5c0f63eae7.herokuapp.com` | Backend API URL |
+| `VITE_API_BASE` | `https://codex-dealersim-production.up.railway.app` | Backend API URL |
 
 ## How to Set Environment Variables in Netlify
 
@@ -20,7 +20,7 @@ You need to set **ONE** environment variable in Netlify:
 4. Click **Add variable**
 5. Enter:
    - **Key**: `VITE_API_BASE`
-   - **Value**: `https://dealership-sim-ee5c0f63eae7.herokuapp.com`
+   - **Value**: `https://codex-dealersim-production.up.railway.app`
 6. Select **Deploy context**: "All deploy contexts" (or specific if needed)
 7. Click **Save**
 
@@ -38,7 +38,7 @@ npm install -g netlify-cli
 netlify login
 
 # Set environment variable
-netlify env:set VITE_API_BASE https://dealership-sim-ee5c0f63eae7.herokuapp.com
+netlify env:set VITE_API_BASE https://codex-dealersim-production.up.railway.app
 
 # Deploy
 netlify deploy --prod
@@ -54,7 +54,7 @@ The `netlify.toml` file includes:
   publish = "frontend/dist"
 
 [build.environment]
-  VITE_API_BASE = "https://dealership-sim-ee5c0f63eae7.herokuapp.com"
+  VITE_API_BASE = "https://codex-dealersim-production.up.railway.app"
 
 [[redirects]]
   from = "/*"
@@ -140,7 +140,7 @@ After deployment, your app will be available at:
 
 | Variable | Value | Required | Description |
 |----------|-------|----------|-------------|
-| `VITE_API_BASE` | `https://dealership-sim-ee5c0f63eae7.herokuapp.com` | ✅ Yes | Backend API URL |
+| `VITE_API_BASE` | `https://codex-dealersim-production.up.railway.app` | ✅ Yes | Backend API URL |
 
 ## Next Steps
 
@@ -153,6 +153,6 @@ After deployment, your app will be available at:
 
 If you encounter issues:
 - Check Netlify build logs
-- Verify backend is running: https://dealership-sim-ee5c0f63eae7.herokuapp.com/health
+- Verify backend is running: https://codex-dealersim-production.up.railway.app/health
 - Review browser console for errors
 
