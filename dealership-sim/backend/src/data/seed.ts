@@ -11,10 +11,10 @@ import {
   Technician,
   Vehicle,
 } from '@dealership/shared';
-import { ADVISOR_ARCHETYPES, TECH_ARCHETYPES } from '../core/balance/archetypes';
-import { RNG } from '../utils/random';
-import { createVehicle } from '../core/services/inventory';
-import { initializeAchievements } from '../core/progression/unlockManager';
+import { ADVISOR_ARCHETYPES, TECH_ARCHETYPES } from '../core/balance/archetypes.js';
+import { RNG } from '../utils/random.js';
+import { createVehicle } from '../core/services/inventory.js';
+import { initializeAchievements } from '../core/progression/unlockManager.js';
 
 const STARTING_CASH = 25_000; // Minimal starting capital for incremental game feel
 const START_YEAR = 2024;

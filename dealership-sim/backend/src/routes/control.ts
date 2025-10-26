@@ -1,6 +1,6 @@
 import { Router, Response } from 'express';
-import { EngineRequest, asEngineHandler } from './types';
-import { createSeedState } from '../data/seed';
+import { EngineRequest, asEngineHandler } from './types.js';
+import { createSeedState } from '../data/seed.js';
 
 const router = Router();
 

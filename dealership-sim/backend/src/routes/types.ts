@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction, RequestHandler } from 'express';
-import { SimulationEngine } from '../core/engine/loop';
-import { GameRepository } from '../core/repository/gameRepository';
+import { SimulationEngine } from '../core/engine/loop.js';
+import { GameRepository } from '../core/repository/gameRepository.js';
 
 export interface EngineRequest extends Request {
   engine: SimulationEngine;

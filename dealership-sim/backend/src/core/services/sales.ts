@@ -7,9 +7,9 @@ import {
   SalesAdvisor,
   Vehicle,
 } from '@dealership/shared';
-import { RNG } from '../../utils/random';
-import { diminishingReturns, clamp, sigmoid } from '../../utils/math';
-import { CUSTOMER_ARCHETYPES, ADVISOR_ARCHETYPES } from '../balance/archetypes';
+import { RNG } from '../../utils/random.js';
+import { diminishingReturns, clamp, sigmoid } from '../../utils/math.js';
+import { CUSTOMER_ARCHETYPES, ADVISOR_ARCHETYPES } from '../balance/archetypes.js';
 
 export interface LeadActivity {
   id: string;

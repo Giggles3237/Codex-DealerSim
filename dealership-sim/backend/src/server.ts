@@ -1,18 +1,18 @@
 import express from 'express';
 import cors from 'cors';
-import { GameRepository } from './core/repository/gameRepository';
-import { SimulationEngine } from './core/engine/loop';
-import { createSeedState } from './data/seed';
-import { loadStateFromFile, saveStateToFile } from './utils/save';
-import stateRoutes from './routes/state';
-import configRoutes from './routes/config';
-import controlRoutes from './routes/control';
-import staffRoutes from './routes/staff';
-import inventoryRoutes from './routes/inventory';
-import marketingRoutes from './routes/marketing';
-import reportsRoutes from './routes/reports';
-import businessRoutes from './routes/business';
-import upgradesRoutes from './routes/upgrades';
+import { GameRepository } from './core/repository/gameRepository.js';
+import { SimulationEngine } from './core/engine/loop.js';
+import { createSeedState } from './data/seed.js';
+import { loadStateFromFile, saveStateToFile } from './utils/save.js';
+import stateRoutes from './routes/state.js';
+import configRoutes from './routes/config.js';
+import controlRoutes from './routes/control.js';
+import staffRoutes from './routes/staff.js';
+import inventoryRoutes from './routes/inventory.js';
+import marketingRoutes from './routes/marketing.js';
+import reportsRoutes from './routes/reports.js';
+import businessRoutes from './routes/business.js';
+import upgradesRoutes from './routes/upgrades.js';
 
 interface StartOptions {
   port: number;

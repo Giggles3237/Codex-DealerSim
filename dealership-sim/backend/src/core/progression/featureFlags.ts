@@ -1,5 +1,5 @@
 import { GameState } from '@dealership/shared';
-import { BASE_CAPABILITIES } from './unlockDefinitions';
+import { BASE_CAPABILITIES } from './unlockDefinitions.js';
 
 /**
  * Feature flags system - determines what player can access

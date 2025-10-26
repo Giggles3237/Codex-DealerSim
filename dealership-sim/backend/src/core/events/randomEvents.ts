@@ -1,5 +1,5 @@
 import { EconomyState, GameState } from '@dealership/shared';
-import { RNG } from '../../utils/random';
+import { RNG } from '../../utils/random.js';
 
 export interface RandomEventResult {
   notifications: string[];

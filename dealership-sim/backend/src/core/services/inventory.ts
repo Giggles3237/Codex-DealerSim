@@ -1,8 +1,8 @@
 import { randomUUID } from 'crypto';
 import { Coefficients, Vehicle, PricingPolicy, PricingState, PRICING_POLICY_MULTIPLIERS } from '@dealership/shared';
-import { RNG } from '../../utils/random';
-import { clamp } from '../../utils/math';
-import { getRandomVehicleForSegment, getYearPriceMultiplier } from '../data/vehicles';
+import { RNG } from '../../utils/random.js';
+import { clamp } from '../../utils/math.js';
+import { getRandomVehicleForSegment, getYearPriceMultiplier } from '../data/vehicles.js';
 
 const SEGMENT_BASE_DEMAND: Record<Vehicle['segment'], number> = {
   luxury: 0.9,

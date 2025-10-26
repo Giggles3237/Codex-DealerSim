@@ -1,10 +1,10 @@
 import { Router, Response } from 'express';
 import { z } from 'zod';
-import { EngineRequest, asEngineHandler } from './types';
-import { ADVISOR_ARCHETYPES, TECH_ARCHETYPES } from '../core/balance/archetypes';
+import { EngineRequest, asEngineHandler } from './types.js';
+import { ADVISOR_ARCHETYPES, TECH_ARCHETYPES } from '../core/balance/archetypes.js';
 import { OPERATING_EXPENSES } from '@dealership/shared';
-import { validateHiring, canAutoAdvance } from '../core/progression/featureFlags';
-import { saveStateToFile } from '../utils/save';
+import { validateHiring, canAutoAdvance } from '../core/progression/featureFlags.js';
+import { saveStateToFile } from '../utils/save.js';
 
 const router = Router();
 

@@ -1,7 +1,7 @@
 import { Router, Response } from 'express';
 import { z } from 'zod';
-import { EngineRequest, asEngineHandler } from './types';
-import { healthCheck, mergeCoefficients } from '../core/balance/coefficients';
+import { EngineRequest, asEngineHandler } from './types.js';
+import { healthCheck, mergeCoefficients } from '../core/balance/coefficients.js';
 
 const configSchema = z.object({
   lead: z.object({ basePerDay: z.number().min(5).max(80).optional(), marketingK: z.number().min(0).max(2).optional(), diminishingK: z.number().min(0).max(2).optional() }).partial(),

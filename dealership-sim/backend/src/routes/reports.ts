@@ -1,5 +1,5 @@
 import { Router, Response } from 'express';
-import { EngineRequest, asEngineHandler } from './types';
+import { EngineRequest, asEngineHandler } from './types.js';
 
 const router = Router();
 

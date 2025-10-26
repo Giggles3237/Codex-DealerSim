@@ -1,11 +1,11 @@
 import { Router, Response } from 'express';
 import { z } from 'zod';
-import { EngineRequest, asEngineHandler } from './types';
-import { acquirePack, applyPricingPolicy } from '../core/services/inventory';
-import { RNG } from '../utils/random';
+import { EngineRequest, asEngineHandler } from './types.js';
+import { acquirePack, applyPricingPolicy } from '../core/services/inventory.js';
+import { RNG } from '../utils/random.js';
 import { Vehicle, PricingPolicy } from '@dealership/shared';
-import { validateInventoryPurchase, getMaxInventorySlots } from '../core/progression/featureFlags';
-import { saveStateToFile } from '../utils/save';
+import { validateInventoryPurchase, getMaxInventorySlots } from '../core/progression/featureFlags.js';
+import { saveStateToFile } from '../utils/save.js';
 
 const router = Router();
 

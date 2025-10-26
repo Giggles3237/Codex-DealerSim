@@ -1,6 +1,6 @@
 import { RepairOrder, ServiceQueueItem, Technician } from '@dealership/shared';
-import { RNG } from '../../utils/random';
-import { clamp } from '../../utils/math';
+import { RNG } from '../../utils/random.js';
+import { clamp } from '../../utils/math.js';
 
 export interface ServiceResult {
   completed: RepairOrder[];

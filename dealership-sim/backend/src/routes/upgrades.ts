@@ -1,8 +1,8 @@
 import { Router, Response } from 'express';
 import { z } from 'zod';
-import { EngineRequest, asEngineHandler } from './types';
-import { purchaseUpgrade } from '../core/progression/unlockManager';
-import { saveStateToFile } from '../utils/save';
+import { EngineRequest, asEngineHandler } from './types.js';
+import { purchaseUpgrade } from '../core/progression/unlockManager.js';
+import { saveStateToFile } from '../utils/save.js';
 
 const router = Router();
 

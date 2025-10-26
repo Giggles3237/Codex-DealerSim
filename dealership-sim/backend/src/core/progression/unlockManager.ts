@@ -1,6 +1,6 @@
 import { GameState, Upgrade, Achievement, UpgradeRequirements, Notification, SalesAdvisor, Technician } from '@dealership/shared';
-import { UPGRADE_DEFINITIONS, ACHIEVEMENT_DEFINITIONS } from './unlockDefinitions';
-import { ADVISOR_ARCHETYPES, TECH_ARCHETYPES } from '../balance/archetypes';
+import { UPGRADE_DEFINITIONS, ACHIEVEMENT_DEFINITIONS } from './unlockDefinitions.js';
+import { ADVISOR_ARCHETYPES, TECH_ARCHETYPES } from '../balance/archetypes.js';
 
 /**
  * Check if upgrade requirements are met

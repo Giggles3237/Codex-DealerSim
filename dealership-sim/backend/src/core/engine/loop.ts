@@ -1,13 +1,13 @@
 import { Coefficients, DailyReport, GameState, MonthlyReport, PipelineState, OPERATING_EXPENSES, BUSINESS_LEVELS, Notification } from '@dealership/shared';
-import { GameRepository } from '../repository/gameRepository';
-import { RNG } from '../../utils/random';
-import { ageInventory, acquirePack } from '../services/inventory';
-import { simulateSalesHour } from '../services/sales';
-import { runServiceDepartment } from '../services/service';
-import { applyRandomEvents } from '../events/randomEvents';
-import { clamp } from '../../utils/math';
-import { runProgressionCheck } from '../progression/unlockManager';
-import { getMaxInventorySlots } from '../progression/featureFlags';
+import { GameRepository } from '../repository/gameRepository.js';
+import { RNG } from '../../utils/random.js';
+import { ageInventory, acquirePack } from '../services/inventory.js';
+import { simulateSalesHour } from '../services/sales.js';
+import { runServiceDepartment } from '../services/service.js';
+import { applyRandomEvents } from '../events/randomEvents.js';
+import { clamp } from '../../utils/math.js';
+import { runProgressionCheck } from '../progression/unlockManager.js';
+import { getMaxInventorySlots } from '../progression/featureFlags.js';
 
 const DAYS_PER_MONTH = 30;
 
@@ -101,14 +101,34 @@ export class SimulationEngine {
     };
 
     // Deliver pending inventory at noon (hour 12)
-    // Only deliver vehicles that were purchased yesterday or earlier
+    // Safety check: Also deliver any vehicles that should have arrived but are still pending
     if (nextState.hour === 12) {
       let reconCostTotal = 0;
+      let normalDeliveries = 0;
+      let stuckDeliveries = 0;
+      
       nextState.inventory = nextState.inventory.map(vehicle => {
-        if (vehicle.status === 'pending' && vehicle.purchasedDay && vehicle.purchasedDay < nextState.day) {
+        // Skip vehicles already in stock or sold
+        if (vehicle.status !== 'pending') {
+          return vehicle;
+        }
+        
+        // Case 1: Normal delivery - vehicles purchased yesterday
+        if (vehicle.purchasedDay && vehicle.purchasedDay === nextState.day - 1) {
           reconCostTotal += vehicle.reconCost;
+          normalDeliveries++;
           return { ...vehicle, status: 'inStock' as const };
         }
+        
+        // Case 2: SAFETY CHECK - vehicles that should have already arrived (stuck vehicles)
+        // This catches vehicles purchased 2+ days ago or vehicles with missing/invalid purchasedDay
+        if (!vehicle.purchasedDay || vehicle.purchasedDay < nextState.day - 1) {
+          reconCostTotal += vehicle.reconCost;
+          stuckDeliveries++;
+          console.warn(`[DELIVERY] Delivering stuck vehicle ${vehicle.stockNumber}: purchasedDay=${vehicle.purchasedDay}, currentDay=${nextState.day}`);
+          return { ...vehicle, status: 'inStock' as const };
+        }
+        
         return vehicle;
       });
       
@@ -118,9 +138,14 @@ export class SimulationEngine {
         nextState.todayCashDelta = (nextState.todayCashDelta || 0) - reconCostTotal;
       }
       
-      const pendingDelivered = nextState.inventory.filter(v => v.status === 'inStock' && v.ageDays === 0).length;
-      if (pendingDelivered > 0) {
-        nextState.notifications.push(`${pendingDelivered} vehicles arrived from auction. Recon cost: $${reconCostTotal.toLocaleString()}`);
+      // Notify about deliveries
+      const totalDelivered = normalDeliveries + stuckDeliveries;
+      if (totalDelivered > 0) {
+        let message = `${totalDelivered} vehicle${totalDelivered === 1 ? '' : 's'} arrived from auction. Recon cost: $${reconCostTotal.toLocaleString()}`;
+        if (stuckDeliveries > 0) {
+          message += ` (${stuckDeliveries} delayed delivery${stuckDeliveries === 1 ? '' : 'ies'})`;
+        }
+        nextState.notifications.push(message);
       }
     }
 

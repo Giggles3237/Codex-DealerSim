@@ -5,7 +5,7 @@ config();
 
 console.log('=== DOTENV LOADED ===');
 
-import { startServer } from './server';
+import { startServer } from './server.js';
 
 console.log('=== SERVER MODULE LOADED ===');
 

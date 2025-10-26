@@ -1,6 +1,6 @@
 import { Router, Response } from 'express';
 import { z } from 'zod';
-import { EngineRequest, asEngineHandler } from './types';
+import { EngineRequest, asEngineHandler } from './types.js';
 
 const router = Router();
 
