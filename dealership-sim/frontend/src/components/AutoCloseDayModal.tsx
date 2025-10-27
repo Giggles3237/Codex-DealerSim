@@ -126,16 +126,9 @@ export const AutoCloseDayModal: React.FC<AutoCloseDayModalProps> = ({
           <div className="flex gap-2">
             <Button
               onClick={handleCloseDay}
-              className="flex-1 bg-blue-600 hover:bg-blue-700"
+              className="w-full bg-blue-600 hover:bg-blue-700"
             >
               Close Day Now
-            </Button>
-            <Button
-              variant="outline"
-              onClick={onClose}
-              className="flex-1"
-            >
-              Wait for Auto-Close
             </Button>
           </div>
 

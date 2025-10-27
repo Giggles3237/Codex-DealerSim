@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { GameState, Vehicle, PricingPolicy, PRICING_POLICY_MULTIPLIERS } from '@dealership/shared';
+import { GameState, Vehicle, PricingPolicy } from '@dealership/shared';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
@@ -20,6 +20,7 @@ const InventoryView = ({ state }: Props) => {
   const { acquireInventory, setPricingPolicy, adjustVehiclePrice, setAgingDiscounts } = useGameStore();
   const [priceAdjustments, setPriceAdjustments] = useState<Record<string, string>>({});
   const [buyQuantity, setBuyQuantity] = useState<number>(2);
+  const [isPricingStrategyExpanded, setIsPricingStrategyExpanded] = useState(false);
 
   const grouped = state.inventory.reduce<Record<string, Vehicle[]>>((acc, vehicle) => {
     acc[vehicle.status] = acc[vehicle.status] || [];
@@ -131,88 +132,100 @@ const InventoryView = ({ state }: Props) => {
 
       {hasUsedCarManager && (
         <Card>
-          <CardHeader>
-            <CardTitle>Pricing Strategy</CardTitle>
-            <CardDescription>Set global and segment-specific pricing policies to maximize gross or move aged inventory.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <label className="text-sm font-medium">Global Pricing Policy</label>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {Object.entries(POLICY_LABELS).map(([policy, label]) => (
-                  <Button
-                    key={policy}
-                    variant={state.pricing.globalPolicy === policy ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setPricingPolicy(policy as PricingPolicy)}
-                  >
-                    {label}
-                  </Button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <label className="text-sm font-medium">Segment-Specific Policies</label>
-              <div className="mt-2 grid gap-3 sm:grid-cols-2">
-                {segments.map((segment) => {
-                  const currentPolicy = state.pricing.segmentPolicies[segment] || state.pricing.globalPolicy;
-                  return (
-                    <div key={segment} className="rounded-lg border border-slate-700 bg-slate-900/50 p-3">
-                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-300">{segment}</p>
-                      <select
-                        className="w-full rounded-md border border-slate-700 bg-slate-800 p-2 text-sm"
-                        value={currentPolicy}
-                        onChange={(e) => setPricingPolicy(undefined, segment, e.target.value as PricingPolicy)}
-                      >
-                        {Object.entries(POLICY_LABELS).map(([policy, label]) => (
-                          <option key={policy} value={policy}>
-                            {label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div>
-              <label className="text-sm font-medium">Aging Discounts</label>
-              <div className="mt-2 grid gap-3 sm:grid-cols-2">
-                <div>
-                  <label className="text-xs text-slate-400">60+ Days Discount (%)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    max="50"
-                    className="mt-1 w-full rounded-md border border-slate-700 bg-slate-800 p-2"
-                    value={(state.pricing.agingDiscounts.days60 * 100).toFixed(0)}
-                    onChange={(e) => {
-                      const val = parseFloat(e.target.value) / 100;
-                      setAgingDiscounts(val, state.pricing.agingDiscounts.days90);
-                    }}
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-slate-400">90+ Days Discount (%)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    max="50"
-                    className="mt-1 w-full rounded-md border border-slate-700 bg-slate-800 p-2"
-                    value={(state.pricing.agingDiscounts.days90 * 100).toFixed(0)}
-                    onChange={(e) => {
-                      const val = parseFloat(e.target.value) / 100;
-                      setAgingDiscounts(state.pricing.agingDiscounts.days60, val);
-                    }}
-                  />
+          <button
+            onClick={() => setIsPricingStrategyExpanded(!isPricingStrategyExpanded)}
+            className="w-full text-left"
+          >
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span>Pricing Strategy</span>
+                <span className="text-sm font-normal text-slate-400">
+                  {isPricingStrategyExpanded ? '▼' : '▶'}
+                </span>
+              </CardTitle>
+              <CardDescription>Set global and segment-specific pricing policies to maximize gross or move aged inventory.</CardDescription>
+            </CardHeader>
+          </button>
+          {isPricingStrategyExpanded && (
+            <CardContent className="space-y-4">
+              <div>
+                <label className="text-sm font-medium">Global Pricing Policy</label>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {Object.entries(POLICY_LABELS).map(([policy, label]) => (
+                    <Button
+                      key={policy}
+                      variant={state.pricing.globalPolicy === policy ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setPricingPolicy(policy as PricingPolicy)}
+                    >
+                      {label}
+                    </Button>
+                  ))}
                 </div>
               </div>
-            </div>
-          </CardContent>
+
+              <div>
+                <label className="text-sm font-medium">Segment-Specific Policies</label>
+                <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                  {segments.map((segment) => {
+                    const currentPolicy = state.pricing.segmentPolicies[segment] || state.pricing.globalPolicy;
+                    return (
+                      <div key={segment} className="rounded-lg border border-slate-700 bg-slate-900/50 p-3">
+                        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-300">{segment}</p>
+                        <select
+                          className="w-full rounded-md border border-slate-700 bg-slate-800 p-2 text-sm"
+                          value={currentPolicy}
+                          onChange={(e) => setPricingPolicy(undefined, segment, e.target.value as PricingPolicy)}
+                        >
+                          {Object.entries(POLICY_LABELS).map(([policy, label]) => (
+                            <option key={policy} value={policy}>
+                              {label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">Aging Discounts</label>
+                <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="text-xs text-slate-400">60+ Days Discount (%)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="50"
+                      className="mt-1 w-full rounded-md border border-slate-700 bg-slate-800 p-2"
+                      value={(state.pricing.agingDiscounts.days60 * 100).toFixed(0)}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value) / 100;
+                        setAgingDiscounts(val, state.pricing.agingDiscounts.days90);
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-slate-400">90+ Days Discount (%)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="50"
+                      className="mt-1 w-full rounded-md border border-slate-700 bg-slate-800 p-2"
+                      value={(state.pricing.agingDiscounts.days90 * 100).toFixed(0)}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value) / 100;
+                        setAgingDiscounts(state.pricing.agingDiscounts.days60, val);
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          )}
         </Card>
       )}
 
